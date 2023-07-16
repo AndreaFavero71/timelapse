@@ -20,7 +20,7 @@ For the installation the needed steps are listed in the [installation file](/set
 
 ## How it works
 The system is based on a python script and a text file for the settings (the only file to edit).<br /><br />
-The [settings.txt](settings.txt) file includes the shooting start (hh:mm), stop (hh:mm) and interval time between shoots (seconds);
+The [settings.txt](settings.txt) file includes the shooting start (hh:mm), stop (hh:mm) and interval time between shoots (seconds).<br />
 Other options are:
 - Usage of the display at Raspberry Pi (true/false).
 - VNC preview (true/false).
@@ -30,9 +30,10 @@ Other options are:
   - predefined fps.
   - predefind video time (in seconds), and the fps will be consequently adapted; For this choice fix_movie_t (true/false) and movie_time_s (seconds).
 - Number of shooting days, for the period defined by start and stop time.
-- Start shooting immediately -.<br />
+- Start shooting immediately.<br />
+<a/>
 (Boolean variables can be set as true, false or 1, 0).<br />
-The overall idea is to predefine the job, and let it go. 
+The overall idea is to predefine the job, and let it go.<br /><br /> 
 
 
 ## Credits and references
