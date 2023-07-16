@@ -3,7 +3,13 @@ Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera 
 The [settings.txt](settings.txt) file includes the shooting start, stop and interval time, further than other options.<br />
 After shooting the timelapse video is generated, based on the set fps or to a predefind time.<br /><br />
 
-https://github.com/AndreaFavero71/timelapse/assets/108091411/55ecba9d-e75a-4bdc-94ac-7ca19b30bca9
+https://github.com/AndreaFavero71/timelapse/assets/108091411/c4e056e2-3037-4b36-ab59-3daa8eece37a
+
+
+
+https://github.com/AndreaFavero71/timelapse/assets/108091411/c5cf6093-a42b-4f7b-8236-5a06180a6d64
+
+
 
 
 
