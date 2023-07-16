@@ -30,8 +30,8 @@ Other options are:
   - predefined fps.
   - predefind video time (in seconds), and the fps will be consequently adapted; For this choice fix_movie_t (true/false) and movie_time_s (seconds).
 - Number of shooting days, for the period defined by start and stop time.
-- Start shooting immediately.<br /><br />
-(Boolean variables can be set as true, false or 1, 0).<br /><br />
+- Start shooting immediately -.<br />
+(Boolean variables can be set as true, false or 1, 0).<br />
 The overall idea is to predefine the job, and let it go. 
 
 
