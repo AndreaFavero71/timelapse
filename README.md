@@ -57,7 +57,6 @@ Other options are:
 1. Boolean variables can be set as true/false or 1/0 or yes/no or.... .<br />
 2. In case the movie is not sattisfactory: Via the script video_render.py the video can be (re)made by changing some parameters. For this reason, the pictures aren't automatically erased after a job completion; pictures are automatically erased at the start of a new job.<br />
 3. I found convenient to share a Raspberry Pi folder via SMB protocol, allowing quick access via a pc. For this reason, the pictures_folder is generated in the shared folder. The [installation file](/setup/installation_steps.txt) gives instructions also for this function.
-4. I'm still working on this system: Additional settings/functions might become necessary; The display is still quite under used.
 <br /><br /><br /><br />
 
 
@@ -76,7 +75,8 @@ Total cost of the project is ca 130€ (plus shipments) <br />
 ## Next steps
 1. Automate the script start at Raspberry Pi booting.
 2. Add the manual focus parameter in the settings/script.
-3. I'm open for your suggestions.
+3. Increase and improve feedback via the display (it's still quite under used).
+4. I'm open for your suggestions.
 <br /><br /><br />
 
 
