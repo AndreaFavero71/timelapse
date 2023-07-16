@@ -7,14 +7,6 @@ https://github.com/AndreaFavero71/timelapse/assets/108091411/c4e056e2-3037-4b36-
 
 
 
-https://github.com/AndreaFavero71/timelapse/assets/108091411/c5cf6093-a42b-4f7b-8236-5a06180a6d64
-
-
-
-
-
-
-
 
 # 3D print cover with the camera support
 The timelapse system has connection for tripod:<br />
