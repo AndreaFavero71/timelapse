@@ -13,7 +13,7 @@ https://github.com/AndreaFavero71/timelapse/assets/108091411/0fade063-e42c-44f9-
 The timelapse system has connection for tripod:<br />
 ![title image](/pictures/title.jpg)
 <br /><br />
-The camera is supported via an arm to change it orientation when suspending the camera on a window via suction caps.<br /><br />
+The camera is supported via an arm to heavily influence its orientation, for instance when suspending the camera on a window via suction caps.<br />
 Stl file are available at folder [/stl](/stl/).<br /><br />
 
 ## Installation
