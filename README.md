@@ -20,7 +20,7 @@ The timelapse system has connection for tripod:<br />
 and adjustable camera orientation with storage for the camera ribbon cable:<br />
 ![title image](/pictures/title2.jpg)   ![title image](/pictures/title3.jpg)  ![title image](/pictures/title4.jpg)
 <br /><br />
-The camera is supported via an arm to vary its orientation, when not used with a tripod with moving head.<br />
+The camera is supported via an arm to vary its orientation, when not used on a tripod with moving head.<br />
 Two holes at the cover sides can be used for other fixing systems (i.e. for brackets withsuction caps, to suspend the system on a window).<br />
 Stl file are available at folder [/stl](/stl/).<br /><br /><br />
 
