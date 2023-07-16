@@ -1,5 +1,5 @@
 # Timelapse system
-(Note: still work in progress :-) )
+(Note: still work in progress :smiley: )<br />
 Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide.<br /><br />
 
 
@@ -20,7 +20,8 @@ For the installation the needed steps are listed in the [installation file](/set
 
 ## How it works
 The system is based on a python script and a text file for the settings (the only file to edit).<br /><br />
-The [settings.txt](settings.txt) file includes the shooting start (hh:mm), stop (hh:mm) and interval time between shoots (seconds); other options are:
+The [settings.txt](settings.txt) file includes the shooting start (hh:mm), stop (hh:mm) and interval time between shoots (seconds);
+Other options are:
 - Usage of the display at Raspberry Pi.
 - VNC preview.
 - HDR (High Dinamic Range) function at camera.
@@ -29,7 +30,7 @@ The [settings.txt](settings.txt) file includes the shooting start (hh:mm), stop 
   - predefined fps.
   - predefind video time (in seconds), and the fps will be consequently adapted.
 - Number of shooting days, for the period defined by start and stop time.<br />
-- Start shooting immediately.
+- Start shooting immediately.<br />
 (Boolean variables can be set as true, false or 1, 0).<br /><br />
 The overall idea is to predefine the job, and let it go. 
 
