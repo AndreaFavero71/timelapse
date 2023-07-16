@@ -12,12 +12,12 @@ https://github.com/AndreaFavero71/timelapse/assets/108091411/c4e056e2-3037-4b36-
 The timelapse system has connection for tripod:<br />
 ![title image](/pictures/title.jpg)
 <br /><br />
-[Stl files at](/stl/).<br /><br />
+Stl file are available at folder [/stl](/stl/).<br /><br />
 
 # Installation
-
+For the installation the needed steps are listed in the [installation file](/setup/installation_steps.txt).<br /><br />
 
 # Credits and references
 [Carolin Dunn](https://github.com/carolinedunn/timelapse/tree/master) tutorial on timelapse.<br />
 [Daniel Kendell](https://www.youtube.com/watch?v=ofozNWdIDow) tutorial on overlapping text with ffmpeg.<br />
-Useful [ffmpeg documentation](https://ffmpeg.org/documentation.html).<br />
+Useful [ffmpeg documentation](https://ffmpeg.org/documentation.html).<br /><br />
