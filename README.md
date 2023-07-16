@@ -10,6 +10,7 @@ Anyhow, by testing the system on sunrise and sunset, I'm already rewarded by thi
 
 https://github.com/AndreaFavero71/timelapse/assets/108091411/0fade063-e42c-44f9-be13-aab4a095e572
 
+Other [examples](https://youtu.be/wO7wYDtcbZA)<br />
 <br /><br /><br /><br />
 
 
