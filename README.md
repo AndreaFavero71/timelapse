@@ -17,6 +17,6 @@ The timelapse system has connection for tripod:<br />
 
 
 # Credits and references
-![Carolin Dunn](https://github.com/carolinedunn/timelapse/tree/master) tutorial on timelapse.<br />
-![Daniel Kendell](https://www.youtube.com/watch?v=ofozNWdIDow) tutorial on overlapping text with ffmpeg.<br />
-Useful ![ffmpeg documentation](https://ffmpeg.org/documentation.html).<br />
+[Carolin Dunn](https://github.com/carolinedunn/timelapse/tree/master) tutorial on timelapse.<br />
+[Daniel Kendell](https://www.youtube.com/watch?v=ofozNWdIDow) tutorial on overlapping text with ffmpeg.<br />
+Useful [ffmpeg documentation](https://ffmpeg.org/documentation.html).<br />
