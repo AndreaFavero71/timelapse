@@ -1,0 +1,11 @@
+Timelapse: List of screws, nuts, washers
+
+1x 1/4"-20 UNC  (nut with thread for tripods, to press into the hexagonal slot at the Base, see "Nut_at_Base.jpg" at /pictures)
+6x M3x8mm conical head (Cover to Base)
+4x M3x14mm cylindrical head (Arm to Base and camera-support to Arm, see "M3_nuts_washers.jpg" at /pictures)
+4x M3 nuts (Base and Arm, see "M3_nuts_washers.jpg" at /pictures)
+8x Washers for M3 (in between Arm to Base, between camera-support to Arm, underneath M3 bolts, see "M3_nuts_washers.jpg" at /pictures)
+2x M2.5x4mm (Camera_cover to Camera_support)
+1x M3x8mm cylindrical head (as display foot, see "display_foot1.jpg" and "display_foot2.jpg" at /pictures)
+2x M3 nuts (as display foot, see "display_foot1.jpg" and "display_foot2.jpg" at /pictures)
+3x Washers for M3 (underneath the external nut, see "display_foot1.jpg" and "display_foot2.jpg" at /pictures)
