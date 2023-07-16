@@ -1,2 +1,0 @@
-Via the Raspberry Pi Imager flash a fast (V30) microSD card with Raspberry Pi OS (32-bit).
-Into the boot folder copy a text file wpa_supplicant.conf with included the wi-fi connections you might need (phone AP is convenient one); An example of this file if provided as reference.
