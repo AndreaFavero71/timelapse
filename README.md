@@ -5,7 +5,6 @@ After shooting the timelapse video is generated, based on the set fps or to a pr
 
 https://github.com/AndreaFavero71/timelapse/assets/108091411/c4e056e2-3037-4b36-ab59-3daa8eece37a
 <br /><br />
-Other timelapse examples into the folder [movies](/movies).<br /><br />
 
 
 # 3D print cover with the camera support
