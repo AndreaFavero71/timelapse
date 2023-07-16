@@ -2,7 +2,10 @@
 Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide.<br /><br />
 (Note: still work in progress :smiley: )<br /><br />
 
+
 https://github.com/AndreaFavero71/timelapse/assets/108091411/0fade063-e42c-44f9-be13-aab4a095e572
+
+
 <br /><br />
 
 
