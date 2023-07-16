@@ -3,8 +3,8 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 04 July 2023,
-#  Timelapse module, based Raspberry Pi 4b and PiCamera V3 (wide)
+#  Andrea Favero 16 July 2023,
+#  Timelapse module, based on Raspberry Pi 4b and PiCamera V3 (wide)
 #############################################################################################################
 """
 
@@ -35,7 +35,7 @@ def setup():
         Makes the folder for the pictures
         Sets the camera, and the display
     """
-    global erase_pics, preview, display, start_now, rendering, fix_movie_t, hdr   # boolean settings
+    global erase_pics, preview, display, start_now, rendering, fix_movie_t, hdr, overlay_fps   # boolean settings
     global folder, pic_name, start_hhmm, end_hhmm, pic_format         # string settings
     global camera_w, camera_h, interval_s, movie_time_s, fps, days    # integer settings
     global GPIO, disp, picam2                            # modules
@@ -57,6 +57,7 @@ def setup():
             rendering = to_bool(settings['rendering'])   # flag for automatic video rendering in Raspberry Pi
             fix_movie_t = to_bool(settings['fix_movie_t'])  # flag for automatic video rendering in Raspberry Pi
             hdr = to_bool(settings['hdr'])               # flag for hdr (High Dinamy Range) camera setting
+            overlay_fps = to_bool(settings['overlay_fps'])  # flag for overlaying the used fps at movie rendering
             
             folder = str(settings['folder'])             # folder name to store the pictures
             pic_name = str(settings['pic_name'])         # picture prefix name
@@ -194,7 +195,7 @@ def time_update(start_time_s):
 
 
 
-def printout(pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps):
+def printout(pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps):
     
     """ Prints the main information to the terminal.
     """
@@ -228,6 +229,8 @@ def printout(pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s, now_s,
     
     if rendering:
         print(f"  Timelapse video render activated")
+        if overlay_fps:
+            print(f"  Fps value will be overlayed on the video")
         if fix_movie_t:
             print(f"  Video rendered at {fps} fps, lasting {round(frames/fps)} secs")
         
@@ -325,8 +328,6 @@ def display_time_left(time_left_s):
 
 
 
-
-
 def shoot(folder, fname, frame, pic_format):
     """ Takes a picture, and saves it in folder with proper file name (prefix + incremental).
     """
@@ -338,7 +339,7 @@ def shoot(folder, fname, frame, pic_format):
 
 
 
-def video_render(folder, fps):
+def video_render(folder, fps, overlay_fps):
     """ Renders all pictures in folder to a movie.
         Saves the movie in folder with proper file datetime file name.
         When the setting constrains the movie to a fix time, the fps are adapted.
@@ -358,8 +359,7 @@ def video_render(folder, fps):
     movie_fname = os.path.join(folder, strftime("%Y%m%d_%H%M%S", localtime())+'.mp4') # movie filename to output
     res = str(camera_w)+'x'+str(camera_h)                    # movie resolution
     
-    text_addition = True
-    if text_addition:
+    if overlay_fps:                      # case overlay_fps is set true
         text = f"{fps}X"                 # text that will be overlayed  
         font = '/usr/share/fonts/truetype/freefont/dejavu/DejaVuSans.ttf'  # font path/filename
         fcol = 'white'                   # font color
@@ -368,13 +368,13 @@ def video_render(folder, fps):
         pad = str(round(int(fsize)/5))   # 20% of the font size
         pos_x = '80'                     # reference from the left
         pos_y = str(camera_h - 80)       # reference from the bottom
-        
         # video filter (v_f) string holding the parameters
         v_f = (f"drawtext=fontfile={font}:text={text}:fontcolor={fcol}:fontsize={fsize}:box=1:boxcolor={bcol}:boxborderw={pad}:x={pos_x}:y={pos_y}")
         
         # ffmpeg command with text addition
         render = f"ffmpeg {stats} {loglevel} -f image2 -framerate {fps} -pattern_type glob -i '{pic_files}' -s '{res}'  -vf '{v_f}' '{movie_fname}' -y"
-    else:
+    
+    else:                                # case overlay_fps is set false
         # ffmpeg command without text addition
         render = f"ffmpeg {stats} {loglevel} -f image2 -framerate {fps} -pattern_type glob -i '{pic_files}' -s '{res}' {movie_fname} -y"
     
@@ -393,6 +393,7 @@ def video_render(folder, fps):
 
 
 
+
 def cpu_temp():
     """ Returns the cpu temperature.
     """
@@ -403,6 +404,7 @@ def cpu_temp():
     except:                                              # exception
         tFile.close()                                    # file is closed
     return cpu_t                                         # cpu_t is returned
+
 
 
 
@@ -446,6 +448,7 @@ def main():
     
     frames = int(shoot_time_s/interval_s)      # frames (= pictures) quantity is calculated
     fps = round(frames/movie_time_s) if fix_movie_t else fps  # in case fix_movie_t is set true (forced movie time) the fps is calculated
+    fps = 1 if fps < 1 else fps                # preventing fps == 0
     if erase_pics:                             # case erase_pics is set true (settings)
         make_space(folder)                     # emptying the folder from old pictures
     
@@ -458,7 +461,7 @@ def main():
         now_s, time_left_s = time_update(start_time_s)   # current time, and time left to shooting start, is retrieved
         
         # startup feedback prints to the terminal
-        printout(pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps)
+        printout(pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps)
         
         # startup feedback prints to the display
         if display:
@@ -473,24 +476,7 @@ def main():
                     now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again 
                     if display:                    # case display is set true
                         display_time_left(time_left_s) # prints left lime to display, and pause
-                    
-#                     if not preview:
-#                         if time_left_s > 30 and camera_started:
-#                             try:
-#                                 picam2.close()     # picamera object is closed
-#                                 camera_started = False
-#                             except:
-#                                 pass
-#                     
-#                         else:
-#                             if not camera_started:
-#                                 try:
-#                                     picam2.start() # picamera object is started
-#                                     camera_started = True
-#                                 except:
-#                                     pass
                         
-        
         
         # from here onward time is managed as per time module
         start_time = time()                        # start reference time
@@ -534,7 +520,7 @@ def main():
     #     picam2.stop_preview(QTGL) #Preview.QTGL)
         
         if rendering:                  # case rendering is set true
-            video_render(folder, fps)  # video_render function is called
+            video_render(folder, fps, overlay_fps)  # video_render function is called
         
         print("CPU temp:", cpu_temp()) # cpu temperature is printed to terminal
         
