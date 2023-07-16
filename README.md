@@ -19,21 +19,27 @@ Stl file are available at folder [/stl](/stl/).<br /><br />
 For the installation the needed steps are listed in the [installation file](/setup/installation_steps.txt).<br /><br />
 
 ## How it works
-The system is based on a python script and a text file for the settings (the only file to edit).<br /><br />
-The [settings.txt](settings.txt) file includes the shooting start (hh:mm), stop (hh:mm) and interval time between shoots (seconds).<br />
+The system is based on a python script and a text file for the settings (the only file to edit).<br />
+The overall idea is to predefine the job, and let it go.<br /><br /> 
+The [settings.txt](settings.txt) file includes the:
+- shooting start (hh:mm)
+- shotting stop (hh:mm)
+- interval between shoots (seconds).<br /><br />
 Other options are:
+- Start shooting immediately (true/false).
 - Usage of the display at Raspberry Pi (true/false).
 - VNC preview (true/false).
+- Camera resolution.
 - HDR (High Dinamic Range) function at camera (true/false).
 - Erasing older pictures from the microSD card (this includes emptying the Wastebasket) (true/false).
 - Auto video generation after the shooting (true/false); this can be based on:
-  - predefined fps.
+  - predefined fps (frame per second value.
   - predefind video time (in seconds), and the fps will be consequently adapted; For this choice fix_movie_t (true/false) and movie_time_s (seconds).
-- Number of shooting days, for the period defined by start and stop time.
-- Start shooting immediately.<br />
+- Number of shooting days (integer), for the period defined by start and stop time.
+- Folder name where to save the pictures and to generate the movie.<br />
 <a/>
-(Boolean variables can be set as true, false or 1, 0).<br />
-The overall idea is to predefine the job, and let it go.<br /><br /> 
+Note: Boolean variables can be set as true/false or 1/0 or yes/no or.... .<br /><br />
+
 
 
 ## Credits and references
