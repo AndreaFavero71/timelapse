@@ -19,8 +19,7 @@ For the installation the needed steps are listed in the [installation file](/set
 
 ## How it works
 The system is based on a python script and a text file for the settings (the only file to edit).<br /><br />
-The [settings.txt](settings.txt) file includes the shooting start, stop and interval time, further than other options.<br />
-Other options are:
+The [settings.txt](settings.txt) file includes the shooting start, stop and interval time; other options are:
 - Usage of the display at Raspberry Pi.
 - VNC preview
 - HDR (High Dinamic Range) function at camera.
