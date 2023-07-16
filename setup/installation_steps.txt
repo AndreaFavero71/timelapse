@@ -1,2 +1,8 @@
-Via the Raspberry Pi Imager flash a fast (V30) microSD card with Raspberry Pi OS (32-bit).
-Into the boot folder copy a text file wpa_supplicant.conf with included the wi-fi connections you might need (phone AP is convenient one); An example of this file if provided as reference.
+Via the Raspberry Pi Imager flash a fast (V30) microSD card with Raspberry Pi OS (32-bit). It is convenient to set a meaningfull Hostname (i.e. timelapse), the Username can remain "pi" but use a personal Password. Configure the LAN from which you're going to initially SSH connect.
+Into the boot folder copy the wpa_supplicant.conf text file with included the wi-fi connections you might need (phone AP is convenient one); An example of this file if provided as reference, to be personalized with your Country difits, the Wi-Fi SSID and Passwords.
+Insert the microSD into the Raspberry Pi, power on and wait until the green LED stops blinking.
+Check for the Raspberry Pi IP in your network.
+Connect to the raspberry Pi via SSH (i.e. via Putty).
+Update the system: ```sudo apt update```.
+Upgrade the system: ```sudo apt upgrade``` (confirm with y).
+Install the picamera library (it shoul result as already installed0: sudo apt-get install python3-picamera.
