@@ -9,7 +9,7 @@ Setting up the Timelapse:
 5. Connect to the raspberry Pi via SSH (i.e. via Putty).
 6. Update the system: sudo apt update
 7. Upgrade the system: sudo apt upgrade -y
-8. Install the picamera library (it should be already installed): sudo apt install python3-picamera
+8. Install the picamera library (it should be already installed): sudo apt install python3-picamera2
 9. Install the driver for the display: pip3 install ST7789==0.0.4
 10. Enable the SSH, SPI, VNC and VNC Display resolution: sudo raspi-config
 10.1 Select: Interface Options
