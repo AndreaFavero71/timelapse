@@ -1,19 +1,17 @@
 # Timelapse system with Raspberry Pi 4b and PiCamera V3 (wide)
 #### Note: still work in progress :smiley: <br />
 Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide.<br />
-The Picamera V3 has auto-focus, HDR; It comes with wide AoV (ca 120') or normal (ca 66'), eventual without IR filter (noIR).<br />
+The Picamera V3 has interesting characteristics, like auto-focus and HDR; It comes with Horizontal field of view (102 degrees) or normal (66 degrees), eventually without IR filter (noIR version).<br />
 <br /><br />
 
 ## Purpose
-My intention is documenting the people approaching my booth, at upcoming Maker Faire; I hope this system will do the job.<br />
+My intention is documenting the people approaching my booth, at upcoming Maker Faire.<br />
 Anyhow, by testing the system on sunrise and sunset, I'm already rewarded by this project.<br />
-
 
 
 https://github.com/AndreaFavero71/timelapse/assets/108091411/2fbdf898-6a90-448d-a211-95300df74fcc
 
 
-<br /><br />
 Other [examples](https://youtu.be/wO7wYDtcbZA)<br />
 <br /><br /><br /><br />
 
