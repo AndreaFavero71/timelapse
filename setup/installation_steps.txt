@@ -30,9 +30,10 @@ Setting up the Timelapse:
 Making a shared folder via SMB protocol:
 1. Install samba: sudo apt install samba samba-common-bin (confirm with y, and yes at DHCP package wins)
 2. Make the folder to share: mkdir /home/pi/shared
-3. Edit samba config file: sudo nano /etc/samba/smb.conf    (at the file end add the below 5 rows, Ctrl + Ins to paste)
+3. Edit samba config file: sudo nano /etc/samba/smb.conf    (at the file end add the below 6 rows, Ctrl + Ins to paste)
 [shared]
 path=/home/pi/shared
+writeable=yes
 create mask=0777
 directory folder=07777
 pubblic=no
