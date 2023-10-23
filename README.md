@@ -16,6 +16,8 @@ https://github.com/AndreaFavero71/timelapse/assets/108091411/2fbdf898-6a90-448d-
 
 
 Other [examples](https://youtu.be/wO7wYDtcbZA)<br />
+Hannover Maker Faire 2023: [2 days in 2 minutes](https://youtu.be/wAfPYTDUh8o)<br />
+
 <br /><br /><br /><br />
 
 
