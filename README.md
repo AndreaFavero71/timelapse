@@ -1,5 +1,5 @@
 # Timelapse system with Raspberry Pi 4b and PiCamera V3 (wide)
-#### Note: still work in progress :smiley: <br />
+
 #### Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide.<br />
 
 The Picamera V3 has interesting characteristics, like auto-focus and HDR;<br />
@@ -78,11 +78,10 @@ Total cost of the project is ca 130€ (plus shipments) <br />
 <br /><br /><br />
 
 
-## Next steps
+## Next possible steps
 1. Automate the script start at Raspberry Pi booting.
-2. Add the manual focus parameter in the settings/script.
-3. Increase and improve feedback via the display (it's still quite under used).
-4. I'm open for your suggestions.
+2. Increase and improve feedback via the display (it's still quite under used).
+3. I'm open for your suggestions.
 <br /><br /><br />
 
 
