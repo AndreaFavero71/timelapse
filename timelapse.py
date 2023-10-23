@@ -3,7 +3,7 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 16 July 2023,
+#  Andrea Favero 17 July 2023,
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera V3 (wide)
 #############################################################################################################
 """
@@ -35,9 +35,10 @@ def setup():
         Makes the folder for the pictures
         Sets the camera, and the display
     """
-    global erase_pics, preview, display, start_now, rendering, fix_movie_t, hdr, overlay_fps   # boolean settings
+    global erase_pics, preview, display, start_now, rendering, fix_movie_t, autofocus, hdr, overlay_fps   # boolean settings
     global folder, pic_name, start_hhmm, end_hhmm, pic_format         # string settings
     global camera_w, camera_h, interval_s, movie_time_s, fps, days    # integer settings
+    global focus_dist_meters                             # float settings
     global GPIO, disp, picam2                            # modules
     global camera_started
     
@@ -56,7 +57,9 @@ def setup():
             start_now = to_bool(settings['start_now'])   # flag to force shoting immediatly or at set datetime
             rendering = to_bool(settings['rendering'])   # flag for automatic video rendering in Raspberry Pi
             fix_movie_t = to_bool(settings['fix_movie_t'])  # flag for automatic video rendering in Raspberry Pi
+            autofocus = to_bool(settings['autofocus'])   # flag to enable/disable autofocus
             hdr = to_bool(settings['hdr'])               # flag for hdr (High Dinamy Range) camera setting
+            
             overlay_fps = to_bool(settings['overlay_fps'])  # flag for overlaying the used fps at movie rendering
             
             folder = str(settings['folder'])             # folder name to store the pictures
@@ -71,6 +74,9 @@ def setup():
             camera_h = int(settings['camera_h'])         # camera height in pixels
             fps = int(settings['fps'])                   # default fps at video generation (when not forced to a fix video time)
             days = int(settings['days'])                 # how many days the timelapse is made
+            
+            focus_dist_meters = float(settings['focus_dist_meters']) # distance in meters for manual focus
+            
             
             
         except:                                          # case of exceptions
@@ -90,17 +96,23 @@ def setup():
         ret = os.system(f"v4l2-ctl --set-ctrl wide_dynamic_range=0 -d /dev/v4l-subdev0") # hdr off
     if ret != 0:                            # case setting the hdr does not return zero
         print("HDR setting returned an error")  # feedback is printed to the terminal
-    sleep(1)                                # little sleep time
+    sleep(0.5)                              # little sleep time
     
-
-#     picam2.set_controls({"AfMode": controls.AfModeEnum.Continuous}) # continuous focus
-    picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": 0.0}) # manual focus (o.o is infinite, 0.5 is 50cm)
+    if autofocus:                           # case autofococus is set true
+        picam2.set_controls({"AfMode": controls.AfModeEnum.Continuous})    # continuous focus
+    else:                                   # case autofococus is set false
+        focus_dist = 1/focus_dist_meters if focus_dist_meters > 0 else 10  # preventing zero division; 0.1 meters is min focus distance (1/0.1=10)
+        picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": focus_dist}) # manual focus;  0.0 is infinite (1/large), 2 is 50cm (1/0.5)
+    
     picam2.configure(camera_conf)           # applying settings to the camera
+    sleep(0.5)                              # little sleep time
+    
     if preview:                             # case the previes is set true
         picam2.start_preview(Preview.QTGL)  # preview related function is activated
     else:                                   # case the previes is set false
         picam2.start_preview(Preview.NULL)  # preview related function is set Null
-    sleep(1)                                # little sleep time
+    
+    sleep(0.5)                              # little sleep time
     picam2.start()                          # camera is finally acivated
     camera_started = True                   # flag to track the camera status
 
@@ -140,18 +152,19 @@ def make_space(folder):
                 break                     # for loop iteration on files is interrupted
     
     f_types.append('mp4')                 # file type to delete from trash bin
-    for f_type in f_types:                # iteration over f_types
-        for file in os.listdir("/home/pi/.local/share/Trash/files/"):  # iteration over files in trash bin folder
-            if file.endswith(f_type):     # case file ends as per f_type
-                ret2 = system(f"rm /home/pi/.local/share/Trash/files/*.{f_type}")  # delete f_type files from folder  
-                ret3 = system(f"rm /home/pi/.local/share/Trash/info/*.{f_type}.trashinfo") # delete f_type info from folder
-                if ret2 != 0:             # case the file(s) removal returns 0
-                    print(f"Issue at emptying the trash from {f_type} files")  # negative feedback printed to terminal
-                if ret3 != 0:             # case the info removal returns 0
-                    print(f"Issue at emptying the trash from {f_type} files info") # negative feedback printed to terminal
-                break                     # for loop iteration on files is interrupted
-
-
+    
+    if os.path.exists("/home/pi/.local/share/Trash/files/"):     # if case the folder exists
+        if os.path.exists("/home/pi/.local/share/Trash/info/"):  # if case the folder exists
+            for f_type in f_types:        # iteration over f_types
+                for file in os.listdir("/home/pi/.local/share/Trash/files/"):  # iteration over files in trash bin folder
+                    if file.endswith(f_type): # case file ends as per f_type
+                        ret2 = system(f"rm /home/pi/.local/share/Trash/files/*.{f_type}")  # delete f_type files from folder  
+                        ret3 = system(f"rm /home/pi/.local/share/Trash/info/*.{f_type}.trashinfo") # delete f_type info from folder
+                        if ret2 != 0:     # case the file(s) removal returns 0
+                            print(f"Issue at emptying the trash from {f_type} files")  # negative feedback printed to terminal
+                        if ret3 != 0:     # case the info removal returns 0
+                            print(f"Issue at emptying the trash from {f_type} files info") # negative feedback printed to terminal
+                        break             # for loop iteration on files is interrupted
 
 def test_camera(pic_test):
     """ Makes a first picture as test, and returns its size in Mb.
@@ -528,8 +541,7 @@ def main():
             print('\n\n\n')
     
     
-    
-    exit_func()                    # exit function is caleld
+    exit_func()                    # exit function is called
 
 
 
@@ -538,5 +550,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
