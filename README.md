@@ -74,7 +74,8 @@ Other options are:
 -     @reboot /bin/sleep 5; bash -l touch /home/pi/timelapse/timelapse_terminal.log && chmod 777 &_
 -     @reboot /bin/sleep 5; bash -l /home/pi/timelapse/timelapse_bash.sh > /home/pi/timelapse/timelapse_terminal.log 2>&1
 3. Save and exit: Ctrl + X, folleved by Y, followed by Enter.<br /><br />
-The timepse.py script will be excuted right after Raspberry Pi boots, and it will work according to parameters saved at [settings.txt](settings.txt) file.
+The timepse.py script will be excuted right after Raspberry Pi boots, and it will work according to parameters saved at [settings.txt](settings.txt) file.<br />
+4. To prevent the script from executing at boot: Edit the crontab, comment out the two commands and save.
 <br /><br /><br /><br />
 
 
