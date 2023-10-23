@@ -68,6 +68,16 @@ Other options are:
 <br /><br /><br /><br />
 
 
+## Automatic script starting at Boot
+1. Edit the crontab: sudo crontab -e
+2. At the end add:
+-     @reboot /bin/sleep 5; bash -l touch /home/pi/timelapse/timelapse_terminal.log && chmod 777 &_
+-     @reboot /bin/sleep 5; bash -l /home/pi/timelapse/timelapse_bash.sh > /home/pi/timelapse/timelapse_terminal.log 2>&1
+3. Save and exit: Ctrl + X, folleved by Y, followed by Enter.<br /><br />
+The timepse.py script will be excuted right after Raspberry Pi boots, and it will work according to parameters saved at [settings.txt](settings.txt) file.
+<br /><br /><br /><br />
+
+
 ## Parts
 Total cost of the project is ca 130€ (plus shipments) <br />
 - 1x [Raspberry Pi 4b](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/) (ca 59€) <br />
@@ -80,10 +90,9 @@ Total cost of the project is ca 130€ (plus shipments) <br />
 <br /><br /><br />
 
 
-## Next possible steps
-1. Automate the script start at Raspberry Pi booting.
-2. Increase and improve feedback via the display (it's still quite under used).
-3. I'm open for your suggestions.
+## Possible improvements
+1. Increase and improve feedback via the display (it's still quite under used).
+2. I'm open for your suggestions.
 <br /><br /><br />
 
 
