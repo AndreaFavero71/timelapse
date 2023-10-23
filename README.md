@@ -8,15 +8,15 @@ My choice went for the wide version, to have a larger FoV.<br />
 <br /><br />
 
 ## Purpose
-My intention is documenting the people approaching my booth, at upcoming Maker Faire.<br />
-Anyhow, by testing the system on sunrise and sunset, I'm already rewarded by this project.<br />
+My intention has been documenting the people approaching my CUBOTino booth, at Hannover Maker Faire 2023.<br />
+Anyhow, by testing the system on sunrise and sunset, I was already rewarded by this project.<br />
 
 
 https://github.com/AndreaFavero71/timelapse/assets/108091411/2fbdf898-6a90-448d-a211-95300df74fcc
 
 
-Other [examples](https://youtu.be/wO7wYDtcbZA)<br />
 Hannover Maker Faire 2023: [2 days in 2 minutes](https://youtu.be/wAfPYTDUh8o)<br />
+Sunrise and sunset [examples](https://youtu.be/wO7wYDtcbZA)<br />
 
 <br /><br /><br /><br />
 
@@ -70,12 +70,17 @@ Other options are:
 
 ## Automatic script starting at Boot
 1. Edit the crontab: sudo crontab -e
-2. At the end add:
--     @reboot /bin/sleep 5; bash -l touch /home/pi/timelapse/timelapse_terminal.log && chmod 777 &_
--     @reboot /bin/sleep 5; bash -l /home/pi/timelapse/timelapse_bash.sh > /home/pi/timelapse/timelapse_terminal.log 2>&1
-3. Save and exit: Ctrl + X, folleved by Y, followed by Enter.<br /><br />
-The timepse.py script will be excuted right after Raspberry Pi boots, and it will work according to parameters saved at [settings.txt](settings.txt) file.<br />
-4. To prevent the script from executing at boot: Edit the crontab, comment out the two commands and save.
+2. Add at the end:
+```
+@reboot /bin/sleep 5; bash -l touch /home/pi/timelapse/timelapse_terminal.log && chmod 777 &_
+```
+```
+@reboot /bin/sleep 5; bash -l /home/pi/timelapse/timelapse_bash.sh > /home/pi/timelapse/timelapse_terminal.log 2>&1
+```
+3. Save and exit: Ctrl + X, followed by Y, followed by Enter.<br />
+
+After Raspberry Pi boots, the timepse.py script will be excuted according to parameters saved at [settings.txt](settings.txt) file.<br />
+Note: To prevent the script from executing at boot, edit the crontab, comment out the two commands and save.
 <br /><br /><br /><br />
 
 
