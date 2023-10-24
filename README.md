@@ -1,6 +1,6 @@
 # Timelapse system with Raspberry Pi 4b and PiCamera V3 (wide)
 
-#### Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide.<br />
+#### Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide.
 
 The Picamera V3 has interesting characteristics, like auto-focus and HDR;<br />
 It comes with Horizontal field of view (102 degrees) or normal (66 degrees), eventually without IR filter (noIR version).<br />
@@ -61,7 +61,7 @@ Other options are:
 - Usage of the display at Raspberry Pi (true/false).
 - Some parameters for the display, like width, height, horizontal and vertical shif, orientation.<br />
 
-### Notes:<br />
+### Notes:
 1. Boolean variables can be set as true/false or 1/0 or yes/no or.... .<br />
 2. In case the movie is not sattisfactory: Via the script video_render.py the video can be (re)made by changing some parameters. For this reason, the pictures aren't automatically erased after a job completion; pictures are automatically erased at the start of a new job.<br />
 3. I found convenient to share a Raspberry Pi folder via SMB protocol, allowing quick access via a pc. For this reason, the pictures_folder is generated in the shared folder. The [installation file](/setup/installation_steps.txt) gives instructions also for this function.
