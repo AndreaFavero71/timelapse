@@ -1,6 +1,6 @@
 # Timelapse system with Raspberry Pi 4b and PiCamera V3 (wide)
 
-#### Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide.
+#### Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide
 
 The Picamera V3 has interesting characteristics, like auto-focus and HDR;<br />
 It comes with Horizontal field of view (102 degrees) or normal (66 degrees), eventually without IR filter (noIR version).<br />
