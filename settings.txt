@@ -1,25 +1,32 @@
 {
+"local_control": "False",
 "preview": "True",
 "erase_pics": "True", 
 
 "start_now": "False",
-"start_hhmm": "20:00",
-"end_hhmm": "23:00",
-"interval_s": "5",
-"days": "1",
+"start_hhmm": "06:00",
+"end_hhmm": "12:00",
+"interval_s": "10",
+"days": "2",
 
 "rendering": "True",
 "fix_movie_t": "True",
-"movie_time_s": "30",
+"movie_time_s": "60",
 "fps": "24",
 "overlay_fps": "True",
 
 "camera_w": "1920",
 "camera_h": "1080",
 "hdr": "True",
+"autofocus": "True",
+"focus_dist_m": "1.00",
+"date_folder": "True",
 "folder": "timelapse_pics",
 "pic_name": "picture",
 "pic_format": "jpg",
+
+"date_folder": "True",
+"folder": "timelapse_pics",
 
 "display": "True",
 "disp_rotation": "90",
