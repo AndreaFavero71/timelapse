@@ -3,7 +3,7 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 16 July 2023, Timelaps application
+#  Andrea Favero 29 July 2023, Timelaps application
 #############################################################################################################
 """
 
@@ -63,54 +63,73 @@ class Display:
 
     def clean_display(self):
         """ Cleans the display by settings all pixels to black."""
-
+        
         disp_img = Image.new('RGB', (self.disp_w, self.disp_h), color=(0, 0, 0))  # full black screen as new image
-        self.disp.display(disp_img)                                          # display is shown to display
+        self.disp.display(disp_img)                                               # display is shown to display
 
 
 
-
-    def show_on_disp2r(self, r1,r2,r3='',x1=20,y1=15,x2=20,y2=70,x3=20,y3=70,fs1=26,fs2=26,fs3=26):
-        """Shows text on two rows, with parameters to generalize this function; Parameters are
-            r1, r2, r3: text for row1, row2 and row3
-            x1, x2, x3: x coordinate for text at row1, row2 and row3
-            y1, y2: y coordinate for text at row1, row2 and row3
-            fs1, fs2, fs3: font size for text at row1, row2 and row3
+    def show_on_disp4r(self, r1,r2,r3='',r4='',x1=20,y1=15,x2=20,y2=70,x3=20,y3=125,x4=20,y4=180,fs1=26,fs2=26,fs3=26,fs4=26):
+        """Shows text on four rows, with parameters to generalize this function; Parameters are
+            r1, r2, r3, r4: text for row1, row2, row3 and row4
+            x1, x2, x3, x4: x coordinate for text at row1, row2, row3 and row4
+            y1, y2, y3, y4: y coordinate for text at row1, row2, row3 and row4
+            fs1, fs2, fs3, fs4: font size for text at row1, row2, row3 and row4
             """
         
         font1 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs1)  # font and size for first text row
         font2 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs2)  # font and size for second text row
-        font3 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs2)  # font and size for second text row
+        font3 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs3)  # font and size for second text row
+        font4 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs4)  # font and size for second text row
         disp_img = Image.new('RGB', (self.disp_w, self.disp_h), color=(0, 0, 0)) 
         disp_draw = ImageDraw.Draw(disp_img)
         disp_draw.text((x1, y1), r1, font=font1, fill=(255, 255, 255))    # first text row start coordinate, text, font, white color
         disp_draw.text((x2, y2), r2, font=font2, fill=(255, 255, 255))    # second text row start coordinate, text, font, white color
         disp_draw.text((x3, y3), r3, font=font3, fill=(255, 255, 255))    # third text row start coordinate, text, font, white color
+        disp_draw.text((x4, y4), r4, font=font4, fill=(255, 255, 255))    # third text row start coordinate, text, font, white color
         
         self.disp.display(disp_img)                                       # image is plot to the display
-
-
-
-
-    def display_progress_bar(self, percent, scrambling=False):
+    
+    
+    
+    
+    def display_progress_bar(self, percent, day, days, shoot):
         """ Function to print a progress bar on the display."""
         
         w = self.disp_w                                            # display width, retrieved by display setting
         
-        # percent value printed as text 
-        fs = 48                 # font size
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs)     # font and its size
-        text_x = int(self.disp_w/2 - (fs*len(str(percent))+1)/2)                   # x coordinate for the text starting location         
-        text_y = 6                                                           # y coordinate for the text starting location
+        # background
         disp_img = Image.new('RGB', (self.disp_w, self.disp_h), color=(0, 0, 0)) 
         disp_draw = ImageDraw.Draw(disp_img)
-        disp_draw.text((text_x, text_y), str(percent)+'%', font=font, fill=(255, 255, 255))    # text with percent value
+        
+        # shoot number printed as text
+        fs = 26                 # font size
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs)  # font and size
+        shoot_number = 'SHOOT ' + '{:05}'.format(shoot)                               # string of shoot number
+        disp_draw.text((10, 6), shoot_number, font=font, fill=(255, 255, 255))        # text with shoot number
+        
+        # day number printed as text
+        days = str(days)                                         # total of days as string
+        digits = len(days)                                       # number digits of string of days
+        day = str(day).zfill(digits)                             # active day in as string with heading zeros
+        day_info = 'DAY ' + day + ' OF ' + days                  # string of shoot number
+        fs = 22 + 2*(digits-1)                                   # font size, adjusted according to digits number
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs)  # font and size
+        disp_draw.text((10, 50), day_info, font=font, fill=(255, 255, 255))  # text with shoot number
+        
+        # percent value printed as text 
+        fs = 40                 # font size
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs)  # font and its size
+        percent_txt = str(round(percent,2))+'%'
+        text_x = int(self.disp_w/2 - fs*(len(percent_txt)-1.5)/2) # x coordinate for the text starting location         
+        text_y = 130                                              # y coordinate for the text starting location
+        disp_draw.text((text_x, text_y), percent_txt, font=font, fill=(255, 255, 255))  # text with percent value
         
         # percent value printed as progress bar filling 
         x = 10                  # x coordinate for the bar starting location
-        y = 65                  # y coordinate for the bar starting location
+        y = 190                 # y coordinate for the bar starting location
         gap = 5                 # gap in pixels between the outer border and inner filling (even value is preferable) 
-        barWidth = 48           # width of the bar, in pixels
+        barWidth = 28           # width of the bar, in pixels
         barLength = w-2*x-4     # lenght of the bar, in pixels
         filledPixels = int( x+gap +(barLength-2*gap)*percent/100)  # bar filling length, as function of the percent
         disp_draw.rectangle((x, y, x+barLength, y+barWidth), outline="white", fill=(0,0,0))      # outer bar border
