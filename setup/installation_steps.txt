@@ -1,5 +1,5 @@
 Setting up the Timelapse:
-1. Flash bullseye OS (or newer) in a fast (V30) microSD card, via Raspberry Pi Imager or other imager tool.
+1. Flash bullseye OS (32 bit) in a fast (V30) microSD card, via Raspberry Pi Imager or other imager tool.
 1.1 It is convenient to set a meaningfull Hostname (i.e. timelapse).
 1.2 For convenience with the script, leave Username as "pi", while you're invited to set your own password (do not use the raspberry as password).
 1.3 Configure the LAN from which you're going to initially connect (i.e. via SSH).
