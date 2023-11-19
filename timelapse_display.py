@@ -3,7 +3,7 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 29 July 2023, Timelaps application
+#  Andrea Favero 19 November 2023, Timelaps application
 #############################################################################################################
 """
 
@@ -11,6 +11,9 @@
 from PIL import Image, ImageDraw, ImageFont  # classes from PIL for image manipulation
 import ST7789                                # library for the TFT display with ST7789 driver 
 import os.path, pathlib, json                # library for the json parameter parsing for the display
+from timelapse_pigpiod import pigpiod as pigpiod # start the pigpiod server
+import pigpio                                # lightweight library for PWM (it requires pigpiod (daemon) running
+
 
 
 class Display:
@@ -26,14 +29,17 @@ class Display:
                 settings = json.load(f)                               # json file is parsed to a local dict variable
             try:
                 disp_rotation = int(settings['disp_rotation'])        # display rotation (allowed 0, 90 180 and 270)
+                disp_bright = int(settings['disp_bright'])           # display brightness (allowed 0 to 100)
+                disp_bright == 10 if disp_bright < 0 else disp_bright    # display brightness min value set to 10
+                disp_bright == 100 if disp_bright > 100 else disp_bright # display brightness max value set to 100
                 disp_width = int(settings['disp_width'])              # display width, in pixels
                 disp_height = int(settings['disp_height'])            # display height, in pixels
                 disp_offsetL = int(settings['disp_offsetL'])          # Display offset on width, in pixels, Left if negative
                 disp_offsetT = int(settings['disp_offsetT'])          # Display offset on height, in pixels, Top if negative
             except:
-                print('error on converting imported parameters to int') # feedback is printed to the terminal
+                print('Error on converting imported parameters to int') # feedback is printed to the terminal
         else:                                                         # case the settings file does not exists, or name differs
-            print('could not find the file: ', fname)                 # feedback is printed to the terminal 
+            print('Could not find the file: ', fname)                 # feedback is printed to the terminal 
 
         
         self.disp = ST7789.ST7789(port=0, cs=0,                       # SPI and Chip Selection                  
@@ -45,18 +51,36 @@ class Display:
                             rotation=disp_rotation,                   # image orientation
                             invert=True, spi_speed_hz=10000000)       # image invertion, and SPI     
         
-        self.disp.set_backlight(0)                                    # display backlight is set off
-        self.disp_w = self.disp.width                                 # display width, retrieved by display setting
-        self.disp_h = self.disp.height                                # display height, retrieved by display setting
+        self.disp.set_backlight(0)            # display backlight is set off
+        self.disp_w = self.disp.width         # display width, retrieved by display setting
+        self.disp_h = self.disp.height        # display height, retrieved by display setting
         disp_img = Image.new('RGB', (self.disp_w, self.disp_h),color=(0, 0, 0))   # display image generation, full black
-        self.disp.display(disp_img)                                   # image is displayed
+        self.disp.display(disp_img)           # image is displayed
+        
+        self.pi = pigpio.pi()                 # object for the pigpio class
+        self.backlight = 18                   # GPIO to "jumper" with the GPIO22 at display or Rpi GPIO
+        self.freq = 20000                     # frequency for the PWM
 
 
+        
+    def display_image(self, image):
+        self.disp.display(image)
 
 
     def set_backlight(self, value):
         """Set the backlight on/off."""
         self.disp.set_backlight(value)
+        if value == 0:
+            self.dimm_backlight(0)
+
+
+
+
+    def dimm_backlight(self, value):
+        """Set the backlight to PWM value"""
+        self.disp.set_backlight(0)
+        self.pi.hardware_PWM(self.backlight, self.freq, value*10000 )
+
 
 
 
@@ -201,7 +225,7 @@ class Display:
     def test_btns(self):
         """ Buttons test: Text changes color when buttons are pressedTest showing some text into some rectangles."""
         
-        print("\nButtons test for 30 seconds")
+        print("\nButtons test for 20 seconds")
         print("Text color changes when buttons are pressed")
     
         import time
@@ -222,7 +246,7 @@ class Display:
         
         self.disp.set_backlight(1)                                        # display backlight is set on
         start = time.time()                                               # time refrence for countdown
-        timeout = 30                                                      # timeout
+        timeout = 20                                                      # timeout
         while time.time() < start + timeout:                              # while loop until timeout
             t_left = str(int(round(timeout + start - time.time(),0)))     # time left
             pos = 195 if len(t_left)>1 else 210                           # position x for timeout text
@@ -230,18 +254,64 @@ class Display:
             col2 = (0, 255, 0) if not GPIO.input(24) else (255, 255, 255) # case bottom button is pressed
             if not GPIO.input(23) and not GPIO.input(24):                 # case both buttons are pressed
                 col1 = col2 = (255, 0, 0)                                 # red color is assigned
-            
             disp_draw = ImageDraw.Draw(disp_img)                          # image is plotted to display
             disp_draw.rectangle((w-57, h-42, w-4, h-4), outline="red", fill=(0,0,0))  # border for timeout
             disp_draw.text((pos, h-35), t_left , font=font2, fill=(255, 0, 0))       # timeout text
             disp_draw.text((20, 25), 'BUTTONS', font=font1, fill=col1)    # first row text test
             disp_draw.text((20, 75), 'TEST', font=font1, fill=col2)       # second row text test
-            
             self.disp.display(disp_img)                                   # image is plotted to the display
         
         self.clean_display()                                              # display is set to full black
         self.disp.set_backlight(0)                                        # display backlight is set off
         print("Buttons test finished\n")                                  # feedback is printed to the terminal
+
+
+
+    def test_pwm_backlight(self):
+        """ Display backlight test: Fully white display fading via PWM."""
+        import time
+        print("\nDisplay backlight fading for 20 seconds")
+        
+        w = self.disp_w                                                   # display width, retrieved by display setting
+        h = self.disp_h                                                   # display height, retrieved by display setting
+        disp_img = Image.new('RGB', (w, h), color=(255, 255, 255))        # full white image
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)  # font
+        
+        max_bright = 50
+        step = 4
+        min_bright = 2*step
+        i = min_bright
+        increment = True
+        
+        start = time.time()                                               # time refrence for countdown
+        timeout = 20                                                      # timeout
+        prev_t = timeout+1
+        while time.time() < start + timeout:                              # while loop until timeout
+            t_left = int(round(timeout + start - time.time(),0))          # time left as integer
+            t_left_txt = str(t_left)                                      # time left as string
+            
+            if t_left<prev_t:
+                pos = 195 if len(t_left_txt)>1 else 210                       # position x for timeout text
+                disp_draw = ImageDraw.Draw(disp_img)                          # image is plotted to display
+                disp_draw.rectangle((w-57, h-42, w-4, h-4), outline="red", fill=(255,255,255))  # border for timeout
+                disp_draw.text((pos, h-35), t_left_txt , font=font, fill=(255, 0, 0))    # timeout text
+                self.disp.display(disp_img)                                   # image is plotted to the display 
+            self.dimm_backlight(i)
+            if i<=max_bright-step and increment:
+                i+=step
+            elif i >= max_bright-step:
+                increment = False
+            if i>=min_bright-step and not increment:
+                i-=step
+            elif i<=min_bright-step and not increment:
+                increment = True
+
+                     
+        self.clean_display()                                              # display is set to full black
+        self.disp.set_backlight(0)                                        # display backlight is set off
+        print("Display backlight fading test finished\n")                 # feedback is printed to the terminal
+
+
 
 
 
@@ -252,8 +322,16 @@ if __name__ == "__main__":
     """the main function can be used to test the display. """
 
     display.test_display()
+    display.test_pwm_backlight()
     display.test_btns()
     display.set_backlight(0)
+    ret=pigpiod.stop_pigpio_daemon()
+    if ret == 0:
+        print("pigpiod stopped successfully")
+    else:
+        print("Erros in stooping pigpiod")
+        
+    
 
     
 
