@@ -179,6 +179,11 @@ def setup():
             
             ##############################################################################
             # additions made after project published at Instructables
+            if settings.get('modified_disp') == None: # case modified_disp is not a key in settings.txt 
+                instructions_info('modified_disp')    # instructions_info function is called
+            else:                                     # case disp_preview is a key in settings.txt
+                modified_disp = to_bool(settings['modified_disp'])  # flag to modified display for PWM
+            
             if settings.get('disp_bright') == None:   # case disp_bright is not a key in settings.txt 
                 instructions_info('disp_bright')      # instructions_info function is called
             else:                                     # case disp_bright is a key in settings.txt
@@ -214,7 +219,8 @@ def setup():
 
             
         except:                                       # case of exceptions
-            print('Error on converting imported parameters to bool or int') # feedback is printed to the terminal
+            print('Error: Missed parameter at imported parameters') # feedback is printed to the terminal
+            print('or bad parameter format resulting in convertion error to bool or int') # feedback is printed to the terminal
             error = 1                                 # error variable is set to 1
             return error                              # error code is returned
    
@@ -251,44 +257,51 @@ def setup():
         return variables, error                       # error is returned
     
     # variables are added to the variables dictionary (key is the string of the variable name)
-    variables['picam2'] = picam2
-    variables['GPIO'] = GPIO
-    variables['display'] = display
     variables['rpi_zero'] = rpi_zero
-    variables['local_control'] =local_control
-    variables['erase_pics'] = erase_pics
-    variables['erase_movies'] = erase_movies
-    variables['preview'] = preview
-    variables['start_now'] = start_now
-    variables['rendering'] = rendering
-    variables['fix_movie_t'] = fix_movie_t
-    variables['autofocus'] = autofocus
-    variables['hdr'] = hdr
-    variables['overlay_fps'] = overlay_fps
-    variables['overlay_text'] = overlay_text
-    variables['date_folder'] = date_folder
-    variables['disp_preview'] = disp_preview
-    variables['disp_image'] = disp_image
-    variables['rotate_180'] = rotate_180
-    variables['parent_folder'] = parent_folder
-    variables['folder'] = folder
-    variables['pic_name'] = pic_name
-    variables['period_hhmm'] = period_hhmm
-    variables['start_hhmm'] = start_hhmm
-    variables['end_hhmm'] =end_hhmm
-    variables['pic_format'] = pic_format
-    variables['camera_w'] = camera_w
-    variables['camera_h'] = camera_h
-    variables['interval_s'] = interval_s
-    variables['movie_time_s'] = movie_time_s
-    variables['fps'] = fps
-    variables['days'] = days
-    variables['disp_bright'] = disp_bright
-    variables['focus_dist_m'] = focus_dist_m
+    variables['picam2'] = picam2
+    variables['camera_started'] = camera_started
+    variables['GPIO'] = GPIO
+    
     variables['upper_btn'] = upper_btn
     variables['lower_btn'] = lower_btn
     variables['disp'] = disp
-    variables['camera_started'] = camera_started
+    
+    variables['preview'] = preview
+    variables['erase_pics'] = erase_pics
+    variables['erase_movies'] = erase_movies
+    
+    variables['local_control'] =local_control
+    variables['start_now'] = start_now
+    variables['period_hhmm'] = period_hhmm
+    variables['start_hhmm'] = start_hhmm
+    variables['end_hhmm'] =end_hhmm
+    variables['interval_s'] = interval_s
+    variables['days'] = days
+    
+    variables['rendering'] = rendering
+    variables['fix_movie_t'] = fix_movie_t
+    variables['movie_time_s'] = movie_time_s
+    variables['fps'] = fps
+    variables['overlay_fps'] = overlay_fps
+    variables['overlay_text'] = overlay_text
+    
+    variables['camera_w'] = camera_w
+    variables['camera_h'] = camera_h
+    variables['hdr'] = hdr
+    variables['autofocus'] = autofocus
+    variables['focus_dist_m'] = focus_dist_m
+    variables['date_folder'] = date_folder
+    variables['folder'] = folder
+    variables['parent_folder'] = parent_folder
+    variables['pic_name'] = pic_name
+    variables['pic_format'] = pic_format
+    variables['rotate_180'] = rotate_180
+    
+    variables['display'] = display
+    variables['modified_disp'] = modified_disp
+    variables['disp_preview'] = disp_preview
+    variables['disp_image'] = disp_image
+    variables['disp_bright'] = disp_bright
     
     return variables, error                           # error code is returned
 
@@ -365,10 +378,7 @@ def set_gpio(display):
         GPIO.setup(upper_btn, GPIO.IN)                # set the upper_btn as an input
         GPIO.setup(lower_btn, GPIO.IN)                # set the lower_button_pin as an input
         disp.clean_display()                          # cleans the display from eventual older images
-        try:                                          # tentative approach
-            disp.dimm_backlight(disp_bright)          # display backlight is turned on, in case it wasn't
-        except:                                       # case of exceptions
-            pass                                      # do nothing
+
     else:                                             # case display (presence) is set False
         upper_btn = lower_btn = disp = None           # variables set to None
     
@@ -380,12 +390,36 @@ def set_gpio(display):
 def instructions_info(parameter):
     """ Prints some info on the terminal.
     """
-    print(f"\nFile settings.txt has been updated with a new parameter: ", parameter)
+    print('\n\n')
+    print("#######################################################################################")
+    print("#######################################################################################")
+    print(f"File settings.txt has been updated with a new parameter: ", parameter)
     print("Check the instructions for this parameter")
-    print("https://www.instructables.com/Timelapse-With-Raspberry-Pi-4b-and-PiCamera-V3-wid/ \n\n")
-    print("\nNote: This meessage will appear for all the new parameters missed in your settings.txt \n")
-    exit_func(1)                                      # exiting function is called with error
+    print("https://www.instructables.com/Timelapse-With-Raspberry-Pi-4b-and-PiCamera-V3-wid/")
+    print("Note: This meessage will appear for all the new parameters missed in your settings.txt ")
+    print("#######################################################################################")
+    print("#######################################################################################")
+    print('\n\n')
+    sys.exit(1)                                       # script is quitted with defined error value
 
+
+
+
+def set_display_backlight(modified_disp, disp_bright):
+    """ Sets the display backlight. When the display is modified (simple wire) PWM is applied.
+    """
+    if modified_disp:                                 # case modified_disp is set True (display modified)
+        try:                                          # tentative approach
+            disp.dimm_backlight(disp_bright)          # display backlight via PWM
+        except:                                       # case of exceptions
+            pass                                      # do nothing
+    else:                                             # case modified_disp is set False (display not modified)
+        if disp_bright == 100:                        # case brightness (disp_bright) is set to 100
+            disp.set_backlight(1)                     # backlight is set ON on its intended GPIO pin
+        elif disp_bright == 0:                        # case brightness (disp_bright) is set to 0
+            disp.set_backlight(0)                     # backlight is set OFF (in reality a pullup keeps it ON)
+        
+            
 
 
 
@@ -449,7 +483,7 @@ def test_camera(pic_test):
         error = 0                                     # error variable is set to 0
         return error, pic_size_bytes, pic_Mb          # return (when no exceptions)
     except:                                           # exception
-        print('\nCamera failure')                   # feedback is printed to the terminal
+        print('\nCamera failure')                     # feedback is printed to the terminal
         error = 1                                     # error variable is set to 1
         return error, pic_size_bytes, pic_Mb          # return (when expections)
 
@@ -472,18 +506,11 @@ def show_image(image, show_time):
         image_with_bg = Image.new(image.mode, (w, h), (0,0,0))   # black blackground
         image_with_bg.paste(resized_image, (0, (h - new_image_h) // 2))  # image is pasted to the background
     
-    try:                                              # tentative approach
-        disp.dimm_backlight(100)                      # display backlight is turned to max brightness
-    except:                                           # case of exceptions
-        pass                                          # do nothing
-    
+    set_display_backlight(modified_disp,100)          # display backlight is set to max
     disp.display_image(image_with_bg)                 # image is displayed
     sleep(show_time)                                  # sleep for shot_time
-    
-    try:                                              # tentative approach
-        disp.dimm_backlight(0)                        # display backlight is turned off
-    except:                                           # case of exceptions
-        pass                                          # do nothing
+    set_display_backlight(modified_disp,0)            # display backlight is set to min
+
 
 
 
@@ -592,12 +619,9 @@ def display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_
     
     disp_time_s = 4                                   # time to let visible each display page
     
-    try:                                              # tentative approach
-        disp.dimm_backlight(disp_bright)              # display backlight is turned on, in case it wasn't
-    except:                                           # case of exceptions
-        pass                                          # do nothing
+    set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
     
-    if variables['disp_bright']:                        # case autofocus is set True
+    if variables['disp_bright']:                      # case autofocus is set True
         disp.show_on_disp4r('BRIGHTNESS', str(variables['disp_bright']) +'%', fs1=26, y2=75, fs2=36)
         sleep(disp_time_s)                            # sleep meant as reading time
     else:                                             # case autofocus is set False
@@ -678,10 +702,7 @@ def display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_
         disp.show_on_disp4r('RENDER', 'NOT ACTIVE', fs1=30, y2=75, fs2=24)
         sleep(disp_time_s)                            # sleep meant as reading time
     
-    try:                                              # tentative approach
-        disp.dimm_backlight(disp_bright)              # display backlight is turned on, in case it wasn't
-    except:                                           # case an exception is raised
-        pass                                          # do nothing
+    set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
 
 
 
@@ -701,33 +722,21 @@ def display_time_left(time_left_s):
     # feedback is printed to display
     disp.show_on_disp4r('SHOOTING IN', secs2hhmmss(time_left_s), fs1=25, y2=55, fs2=22, y3=85, fs3=22)
     
-    try:                                              # tentative approach
-        disp.dimm_backlight(disp_bright)              # display backlight is turned on, in case it wasn't
-    except:                                           # case an exception is raised
-        pass                                          # do nothing
+    set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
     
     if time_left_s > 3600 and not quitting:           # case time_left_s is more than one hour
         sleep(2)                                      # sleep when waiting for the planned shooting start
-        try:                                          # tentative approach
-            disp.dimm_backlight(disp_bright)          # display backlight is turned on, in case it wasn't
-        except:                                       # case an exception is raised
-            pass                                      # do nothing
+        set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
         sleep(10)                                     # sleep when waiting for the planned shooting start
     
     elif time_left_s > 60 and not quitting:           # case time_left_s is more than one minute
         sleep(2)                                      # sleep when waiting for the planned shooting start
-        try:                                          # tentative approach
-            disp.dimm_backlight(disp_bright)          # display backlight is turned on, in case it wasn't
-        except:                                       # case an exception is raised
-            pass                                      # do nothing
+        set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
         sleep(5)                                      # sleep when waiting for the planned shooting start
     
     elif time_left_s > 12 and not quitting:           # case time_left_s is more than 12 seconds
         sleep(1)                                      # sleep when waiting for the planned shooting start
-        try:                                          # tentative approach
-            disp.dimm_backlight(disp_bright)          # display backlight is turned on, in case it wasn't
-        except:                                       # case an exception is raised
-            pass                                      # do nothing
+        set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
         sleep(1)                                      # sleep when waiting for the planned shooting start
     else:                                             # case time_left_s is less than 12 seconds
         sleep(0.1)                                    # sleep when waiting for the planned shooting start
@@ -786,8 +795,9 @@ def video_render(folder, pic_format, width, height, fps, overlay_text):
     else:                                             # case render_progress is set False
         stats = '-nostats'                            # tats parameter is set as not active
     
-    pic_files = os.path.join(folder, '*' + pic_format)   # imput images files
-    out_file = os.path.join(folder, strftime("%Y%m%d_%H%M%S", localtime())+'.mp4')  # output video file
+    pic_files = os.path.join(parent_folder, folder, '*.' + pic_format)   # imput images files
+    print(pic_files)
+    out_file = os.path.join(parent_folder, folder, strftime("%Y%m%d_%H%M%S", localtime())+'.mp4')  # output video file
     size = str(width)+'x'+str(height)                 # frame size
     
     
@@ -852,28 +862,19 @@ def stop_or_quit(button, button_press_time):
     while not GPIO.input(button):                     # while button is pressed 
         if not warning:                               # case warning is False
             if time() - button_press_time >= warn_time:  # case time elapsed is >= warn_time reference
-                try:                                  # tentative approach
-                    disp.dimm_backlight(disp_bright)  # display backlight is turned on, in case it wasn't
-                except:                               # case an exception is raised
-                    pass                              # do nothing
+                set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
                 disp.show_on_disp4r('STOPPED', 'SHOOTING', fs1=37, y2=75, fs2=32) # feedback is printed to the display
                 stop_shooting = True                  # stop shooting is set True
                 warning = True                        # warning is set True
                 sleep(2)                              # wait time to let the message visible on the display
         
         while warning:                                # case warning is True                    
-            try:                                      # tentative approach
-                disp.dimm_backlight(disp_bright)      # display backlight is turned on, in case it wasn't
-            except:                                   # case an exception is raised
-                pass                                  # do nothing
+
             disp.show_on_disp4r('SURE TO', 'QUIT ?', fs1=36, y2=75, fs2=42) # feedback is printed to display
             if GPIO.input(button):                    # case the button is released
                 warning = False                       # warning is set False
                 button_pressed = False                # button_pressed is set False
-                try:                                  # tentative approach
-                    disp.dimm_backlight(disp_bright)  # display backlight is turned on, in case it wasn't
-                except:                               # case an exception is raised
-                    pass                              # do nothing
+                set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
                 disp.show_on_disp4r('NOT', 'QUITTING', fs1=42, y2=80, fs2=36) # feedback is printed to display
                 break                                 # while loop is interrupted
             
@@ -882,21 +883,15 @@ def stop_or_quit(button, button_press_time):
                 break                                 # while loop is interrupted
                     
         while quitting:                               # case the keep_quitting variable is True
-            print('\n\nQuitting request')           # feedback is printed to display
+            print('\n\nQuitting request')             # feedback is printed to display
             for i in range(5):                        # iteration for  5 times
-                try:                                  # tentative approach
-                    disp.dimm_backlight(disp_bright)  # display backlight is turned on, in case it wasn't
-                except:                               # case an exception is raised
-                    pass                              # do nothing
+                set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
                 disp.show_on_disp4r('SHUTTING', 'OFF', fs1=32, y2=75, fs2=42) # feedback is printed to display
                 sleep(1)                              # wait time to let the message visible on the display
 
             countdown = 3                             # count-down variable
             for i in range(countdown,-1, -1):         # iteration down the countdown variable
-                try:                                  # tentative approach
-                    disp.dimm_backlight(disp_bright)  # display backlight is turned on, in case it wasn't
-                except:                               # case an exception is raised
-                    pass                              # do nothing
+                set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
                 dots = ''                             # dot string variable is set empty
                 for k in range(min(i,3)):             # iteration over the residual cont-down, with max of three
                     dots = dots + '.'                 # dot string variable adds a dot character          
@@ -905,32 +900,20 @@ def stop_or_quit(button, button_press_time):
                 if i > 0:                             # case the cont-down is above 0
                     sleep(1)                          # wait time to let the message visible on the display
             
-            try:                                      # tentative approach
-                disp.dimm_backlight(0)                # display backlight is turned on, in case it wasn't
-            except:                                   # case an exception is raised
-                pass                                  # do nothing
+            set_display_backlight(modified_disp,0)    # display backlight is set to min 
 
             if not GPIO.input(upper_btn) or not GPIO.input(lower_btn):   # case one of the buttons is pressed
-                try:                                  # tentative approach
-                    disp.dimm_backlight(disp_bright)  # display backlight is turned on, in case it wasn't
-                except:                               # case an exception is raised
-                    pass                              # do nothing
+                set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
                 disp.show_on_disp4r('EXITING', 'SCRIPT', fs1=36, y2=75, fs2=42)  # feedback is printed to the display
                 sleep(1)                              # some little delay
                 process_to_kill = "timelapse_bash.sh | grep -v grep | grep -v timelapse_terminal.log"  # string to find the process PID to kill
                 nikname = "timelapse_bash.sh"         # process name
                 kill_process(process_to_kill, nikname)   # call to the killing function
                 sleep(1)                              # some little delay
-                try:                                  # tentative approach
-                    disp.dimm_backlight(disp_bright)  # display backlight is turned on, in case it wasn't
-                except:                               # case an exception is raised
-                    pass                              # do nothing
+                set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
                 disp.show_on_disp4r('SCRIPT', 'ENDED', fs1=36, y2=75, fs2=42)  # feedback is printed to the display
                 sleep(2)                              # some little delay
-                try:                                  # tentative approach
-                    disp.dimm_backlight(0)            # display backlight is turned OFF
-                except:                               # case an exception is raised
-                    pass                              # do nothing
+                set_display_backlight(modified_disp,0)   # display backlight is set to min 
                 error = 2                             # error coe is set to 2 (quittings the script, without RPI shut off) 
             
             exit_func(error)                          # qutting function is called
@@ -964,18 +947,12 @@ def button_action(button):
                     if paused:                        # case decision is set False and paused is set True
                         paused = False                # paused is set False
                         paused_time = time() - last_shoot_time  # paused_time is a time shift (in secs) from last shoot
-                        try:                          # tentative approach
-                            disp.dimm_backlight(disp_bright)  # display backlight is turned on, in case it wasn't
-                        except:                       # case an exception is raised
-                            pass                      # do nothing
+                        set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
                         disp.show_on_disp4r('STARTED', 'SHOOTING', fs1=37, y2=75, fs2=32)  # feedback is printed to the display
                     
                     elif not paused:                  # case decision is set False and paused is set False
                         paused = True                 # paused is set True
-                        try:                          # tentative approach
-                            disp.dimm_backlight(disp_bright) # display backlight is turned on, in case it wasn't
-                        except:                       # case an exception is raised
-                            pass                      # do nothing
+                        set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
                         disp.show_on_disp4r('PAUSED', 'SHOOTING', fs1=37, y2=75, fs2=32) # feedback is printed to the display
                         sleep(2.5)                    # wait time to let the message visible on the display
                     
@@ -1042,11 +1019,7 @@ def display_update(day, days, frame_d, frames, interval_s, plot_percentage):
         disp.display_progress_bar(percent, day+1, days, frame_d)  # call the function that displayes the progress and shoot number
     else:                                             # case of undefined number shoots
         disp.show_on_disp4r('SHOOT', '{:05}'.format(frame_d), fs1=32, y2=75, fs2=34)  # feedback is printed to display
-    
-    try:                                              # tentative approach
-        disp.dimm_backlight(disp_bright)              # display backlight is turned on, in case it wasn't
-    except:                                           # case an exception is raised
-        pass                                          # do nothing
+    set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
     
 
 
@@ -1055,9 +1028,9 @@ def display_update(day, days, frame_d, frames, interval_s, plot_percentage):
 def stop_pigpiod():
     ret=pigpiod.stop_pigpio_daemon()                  # call the class to stop the pigpiod server
     if ret == 0:                                      # case zero is returned
-        print("\nPigpiod stopped successfully")     # feedback is printed to terminal
+        print("\nPigpiod stopped successfully")       # feedback is printed to terminal
     else:                                             # case not-zero is returned
-        print("\nPigpiod stopping issues")          # feedback is printed to terminal
+        print("\nPigpiod stopping issues")            # feedback is printed to terminal
     sleep(1)                                          # little delay
 
 
@@ -1070,23 +1043,23 @@ def exit_func(error):
     try:                                              # tentative approach
         picam2.stop()                                 # camera is finally acivated
     except:                                           # exception
-        print("\n  failing to close the Picamera")    # feedback is printed to the terminal
+        print("\nFailing to close the Picamera")      # feedback is printed to the terminal
     
     if not rendering_phase:                           # case rendering_phase is set False
         try:                                          # tentative approach
             disp.clean_display()                      # cleans the display
         except:                                       # exception
-            print("\n  failing to clean the display") # feedback is printed to the terminal
+            print("Failing to clean the display")   # feedback is printed to the terminal
         
         try:                                          # tentative approach
             GPIO.output(22,0)                         # set low the GPIO22 (used as for Mini Pi TFT Backlight)
         except:                                       # exception
-            print("\n  failing to set low the GPIO pin 22") # feedback is printed to the terminal
+            print("Failing to set low the GPIO pin 22") # feedback is printed to the terminal
     
         try:                                          # tentative approach
             stop_pigpiod()                            # pigpiod server stop request
         except:                                       # exception
-            print("\n  failing to stop pigpiod or not activated yet") # feedback is printed to the terminal
+            print("Failing to stop pigpiod or not activated yet") # feedback is printed to the terminal
     
     print()                                           # empty line is printed to terminal
     sys.exit(error)                                   # script is quitted with defined error value
@@ -1123,8 +1096,9 @@ if __name__ == "__main__":
             debug = True                       # flag to enable/disable the debug related prints is set True
         
     error = 0                                  # error value for the script quitting (0 means no errors)
-    variables, error = setup()                 # retrieves settings, and initializes things
-    if error>0:                                # case of an error
+    try:
+        variables, error = setup()             # retrieves settings, and initializes things
+    except:
         exit_func(error)                       # exit function is caleld
     
     rpi_zero = variables['rpi_zero']
@@ -1167,6 +1141,7 @@ if __name__ == "__main__":
     rotate_180 = variables['rotate_180']
     
     display = variables['display']
+    modified_disp = variables['modified_disp']
     disp_preview = variables['disp_preview']
     disp_image = variables['disp_image']
     disp_bright = variables['disp_bright']
@@ -1368,10 +1343,7 @@ if __name__ == "__main__":
                 while paused:                      # while the shooting is paused
                     paused_time = time() - last_shoot_time  #  paused time (in secs) is calculated
                     if display and not quitting and not button_pressed:  # case of display, not quitting and not buttons action
-                        try:                       # tentative approach
-                            disp.dimm_backlight(disp_bright) # display backlight is turned on, in case it wasn't
-                        except:                    # case an exception is raised
-                            pass                   # do nothing
+                        set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
                         disp.show_on_disp4r('PRESS TO', 'START', fs1=37, y2=75, fs2=37) # feedback is printed to the display
                         sleep(0.5)                 # little time to let visible the plot on display
                         if disp_preview:           # case display_preview
@@ -1415,10 +1387,7 @@ if __name__ == "__main__":
                 display_update(day, days, frame_d, frames, interval_s, plot_percentage)  # display is updated
                 if  2 * disp_sleep_time < ref_time - time_for_focus - time():   # case there is time to apply a pause (sleep) before next focu
                     sleep(disp_sleep_time)         # sleep time in between time checks
-                    try:                           # tentative approach
-                        disp.dimm_backlight(0)     # display backlight is turned on, in case it wasn't
-                    except:                        # case an exception is raised
-                        pass                       # do nothing
+                    set_display_backlight(modified_disp,0)  # display backlight is set to min
                     sleep(disp_sleep_time)         # sleep time in between time checks
                     
                 
@@ -1427,7 +1396,7 @@ if __name__ == "__main__":
                 
                 # last frame gets its own print to terminal, to make visible the frames quantity
                 print(strftime("%d %b %Y %H:%M:%S", localtime()), '\t', "frame:", '{:05}'.format(frame_d-1), " is the last frame")
-                print("Shooting completed")      # feedback is printed to terminal
+                print("Shooting completed")        # feedback is printed to terminal
                 break                              # while loop is interrupted
 
 
@@ -1435,10 +1404,7 @@ if __name__ == "__main__":
         stop_shooting = False                      # stop_shooting variable is reset to False
         
         if display and not quitting:               # case display is set True                              
-            try:                                   # tentative approach
-                disp.dimm_backlight(disp_bright)   # display backlight is turned on, in case it wasn't
-            except:                                # case an exception is raised
-                pass                               # do nothing
+            set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
             disp.show_on_disp4r('FINISHED', 'SHOOTING', fs1=32, y2=75, fs2=32) # feedback is printed to the display
             sleep(4)                               # sleep time in between time checks
         

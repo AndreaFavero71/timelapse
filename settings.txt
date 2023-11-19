@@ -31,10 +31,11 @@
 "rotate_180": "False",
 
 "display": "True",
+"modified_disp": "False",
 "disp_preview": "False",
 "disp_image": "False",
 "disp_rotation": "90",
-"disp_bright": "30",
+"disp_bright": "100",
 "disp_width": "240",
 "disp_height": "240",
 "disp_offsetL": "0",

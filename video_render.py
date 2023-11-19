@@ -63,8 +63,8 @@ args = parser.parse_args()   # argument parsed assignement
 
 
 ################  retrieve arguments  ###########################################################
-if args.parent_folder != None:     # case the video_render.py has been launched with 'parent_folder' argument
-    parent_folder = args.parent_folder   # the parent_folder string arg is assigned to the parent_folder variable
+if args.parent != None:            # case the video_render.py has been launched with 'parent' argument
+    parent_folder = args.parent    # the parent string arg is assigned to the parent_folder variable
     
 if args.folder != None:            # case the video_render.py has been launched with 'folder' argument
     folder = args.folder           # the folder string arg is assigned to the folder variable
