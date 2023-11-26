@@ -3,14 +3,14 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 19 November 2023,
+#  Andrea Favero 26 November 2023,
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera V3 (wide)
 #############################################################################################################
 """
 
 
 # __version__ variable
-version = '0.1 (19 Nov 2023)'
+version = '0.2 (26 Nov 2023)'
 
 
 ################  setting argparser for parameter parsing  ######################################
@@ -247,9 +247,10 @@ def setup():
             print("Start_now changed to True as local_control is set True")  # feedback is printed to terminal
         if days > 1:                                  # case the set days are > 1
             days = 1                                  # days is set to one
+    if start_now:                                     # case start_sow is set True
+        days = 1                                      # only a single period (day) is considered
     
-    
-    GPIO, upper_btn, lower_btn, disp = set_gpio(display)   # calls the function to set gpio
+    GPIO, upper_btn, lower_btn, disp = set_gpio(display)  # calls the function to set gpio
     
     # calls to the function to set the camera
     picam2, camera_started, error = set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, preview)  
@@ -369,16 +370,13 @@ def set_gpio(display):
     GPIO.setwarnings(False)                           # GPIO warning set to False to reduce effort on handling them
     GPIO.setmode(GPIO.BCM)                            # GPIO module setting  
     
-    
     if display:                                       # case display (presence) is set True 
         from timelapse_display import display as disp   # display Class is imported
-        
         upper_btn = 23                                # GPIO pin used by the upper button
         lower_btn = 24                                # GPIO pin used by the lower button
         GPIO.setup(upper_btn, GPIO.IN)                # set the upper_btn as an input
         GPIO.setup(lower_btn, GPIO.IN)                # set the lower_button_pin as an input
         disp.clean_display()                          # cleans the display from eventual older images
-
     else:                                             # case display (presence) is set False
         upper_btn = lower_btn = disp = None           # variables set to None
     
@@ -401,6 +399,23 @@ def instructions_info(parameter):
     print("#######################################################################################")
     print('\n\n')
     sys.exit(1)                                       # script is quitted with defined error value
+
+
+
+
+
+def start_camera(picam2, preview):
+    """ Starts the camera and the preview stream.
+    """    
+    camera_started = True                             # camera_started is set True
+    try:                                              # tentative approach
+        if preview:                                   # case preview is set True             
+            picam2.start_preview(Preview.QTGL)        # re-starting the camera preview
+        picam2.start()                                # re-starting the camera
+    except:                                           # case of exceptions
+        camera_started = False                        # camera_started is set False
+    return camera_started
+                
 
 
 
@@ -515,6 +530,16 @@ def show_image(image, show_time):
 
 
 
+def preview_shoot_and_show(picam2, camera_started, preview_pic, preview_show_time):
+    """ Activates the camera, takes a picture and show it to display.
+    """
+    if camera_started == False:                       # case camera_started is set False and almost time to shoot
+        camera_started = start_camera(picam2, preview=False)  # starts the camera
+    ret = picam2.capture_file(preview_pic)            # camera takes and save a picture
+    show_image(preview_pic, preview_show_time)        # call to the function to show the picture
+
+
+
 
 def disk_space():
     """ Checks the disk space (main disk), and returns it in Mb.
@@ -536,8 +561,8 @@ def time_update(start_time_s):
 
 
 
-def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s,
-             now_s, time_left_s, shoot_time_s, fps, overlay_fps):
+def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_now, local_control,
+             start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps):
     
     """ Prints the main information to the terminal.
     """
@@ -565,18 +590,20 @@ def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_tim
     print(f"Free disk space: {disk_Mb} Mb")
     print(f"Rough max number of pictures: {max_pics}")
     
-    print(f"Day {day+1} of {days}")
+    if days>1:
+        print(f"Day {day+1} of {days}")
     
     if start_now:
-        print("Shooting starts now")
+        print("Shooting starts:     now")
+        if not local_control:
+            print(f"Shooting period:     {secs2hhmmss(shoot_time_s)}")
     else:
+        print(f"Shooting starts:     {secs2hhmmss(start_time_s)}")
+        print(f"Shooting ends:       {secs2hhmmss(end_time_s)}")
         if time_left_s > 0:
-            print(f"Shooting starts     {secs2hhmmss(start_time_s)}")
-            print(f"Shooting ends       {secs2hhmmss(end_time_s)}")
-            print(f"Shooting starts in  {secs2hhmmss(time_left_s)}")
+            print(f"Shooting starts in:  {secs2hhmmss(time_left_s)}")
 
-    print(f"Shooting period     {secs2hhmmss(shoot_time_s)}")
-    print(f"Shooting every {interval_s} seconds")
+    print(f"Shooting every:      {interval_s} seconds")
     
     if max_pics < frames:
         if days>1 and not rendering:
@@ -585,9 +612,9 @@ def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_tim
             print(f"Number of pictures limited to about: {frames}, due to staorage space")
     else:
         if days>1:
-            print(f"Camera will take {frames} pictures a day")
+            print(f"Camera will take:    {frames} pictures a day")
         else:
-            print(f"Camera will take {frames} pictures")
+            print(f"Camera will take:    {frames} pictures")
             
     if rendering:
         print(f"Timelapse video render activated")
@@ -610,10 +637,6 @@ def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_tim
 
 
 def display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_s):
-    
-    # day, days, pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s,
-     #            now_s, interval_s, time_left_s, shoot_time_s, fps, autofocus, focus_dist_m):
-    
     """ Prints the main information to the display.
     """
     
@@ -725,18 +748,21 @@ def display_time_left(time_left_s):
     set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
     
     if time_left_s > 3600 and not quitting:           # case time_left_s is more than one hour
-        sleep(2)                                      # sleep when waiting for the planned shooting start
         set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
+        sleep(3)                                      # sleep when waiting for the planned shooting start
+        set_display_backlight(modified_disp,0)        # display backlight is set to disp_bright
         sleep(10)                                     # sleep when waiting for the planned shooting start
     
     elif time_left_s > 60 and not quitting:           # case time_left_s is more than one minute
-        sleep(2)                                      # sleep when waiting for the planned shooting start
         set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
+        sleep(2)                                      # sleep when waiting for the planned shooting start
+        set_display_backlight(modified_disp,0)        # display backlight is set to disp_bright
         sleep(5)                                      # sleep when waiting for the planned shooting start
     
     elif time_left_s > 12 and not quitting:           # case time_left_s is more than 12 seconds
-        sleep(1)                                      # sleep when waiting for the planned shooting start
         set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
+        sleep(1)                                      # sleep when waiting for the planned shooting start
+        set_display_backlight(modified_disp,0)        # display backlight is set to disp_bright
         sleep(1)                                      # sleep when waiting for the planned shooting start
     else:                                             # case time_left_s is less than 12 seconds
         sleep(0.1)                                    # sleep when waiting for the planned shooting start
@@ -744,14 +770,17 @@ def display_time_left(time_left_s):
 
 
 
-def shoot(folder, fname, frame, pic_format, focus_ready, ref_time, display, disp_image):
+def shoot(folder, fname, frame, pic_format, focus_ready, ref_time, display, disp_image, time_for_focus):
     """ Takes a picture, and saves it in folder with proper file name (prefix + incremental).
         When autofocus, the shoot is done once the camera confirms the focus achievement.
     """
     
     if autofocus:                                     # case autofocus is set True (settings)
+        t_ref = time()                                # reference time for autofocus ready from camera
         while not picam2.wait(focus_ready):           # while the autofocus is not ready yet
             sleep(0.05)                               # short sleep
+            if time()-t_ref >= time_for_focus:        # case the time for autofocus has elapsed
+                break                                 # while loop is interrupted
     
     while time() < ref_time:                          # while it isn't time to shoot yet
         sleep(0.05)                                   # short sleep
@@ -779,9 +808,14 @@ def video_render(folder, pic_format, width, height, fps, overlay_text):
         Saves the video in folder with proper file datetime file name.
         When the setting constrains the video to a fix time, the fps are adapted.
     """
+
+    print(f"\n\nVideo rendering started")             # feedback is printed to the terminal
+    if display:                                       # case display is set True                              
+        set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
+        disp.show_on_disp4r('RENDERING', 'ONGOING', fs1=30, y2=75, fs2=32) # feedback is printed to the display
+        sleep(4)                                      # sleep time in between time checks
     
     render_start = time()                             # time reference for the rendering process
-    print(f"\nVideo rendering started\n")           # feedback is printed to the terminal
         
     render_warnings = False                           # flag to printout the rendering ffmpeg error 
     render_progress = False                           # flag to printout the rendering progress (statistics)
@@ -796,7 +830,6 @@ def video_render(folder, pic_format, width, height, fps, overlay_text):
         stats = '-nostats'                            # tats parameter is set as not active
     
     pic_files = os.path.join(parent_folder, folder, '*.' + pic_format)   # imput images files
-    print(pic_files)
     out_file = os.path.join(parent_folder, folder, strftime("%Y%m%d_%H%M%S", localtime())+'.mp4')  # output video file
     size = str(width)+'x'+str(height)                 # frame size
     
@@ -823,10 +856,22 @@ def video_render(folder, pic_format, width, height, fps, overlay_text):
     
     if ret==0:                                        # case no error is returned
         print(f"Timelapse successfully rendered, in {render_time} secs")  # feednback is printed to terminal
-        print(f"Timelase saved as {out_file} \n\n")   # reference to the vieo location is printed to terminal
+        print(f"Timelase saved as {out_file} \n")   # reference to the vieo location is printed to terminal
+        if display:                                   # case display is set True                              
+            set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
+            disp.show_on_disp4r('RENDERING', 'DONE', fs1=30, y2=75, fs2=36) # feedback is printed to the display
+            sleep(4)                                  # sleep time in between time checks
+            set_display_backlight(modified_disp,0)    # display backlight is set to min
+
     else:                                             # case errors are returned
-        print("Timelapse render error\n")           # feeedback is printed to terminal
-        print(f"Timelapse rerror after {render_time} secs")  # feednback is printed to terminal
+        print("Timelapse render error")             # feeedback is printed to terminal
+        print(f"Timelapse rerror after {render_time} secs\n")  # feednback is printed to terminal
+        if display:                                   # case display is set True                              
+            set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
+            disp.show_on_disp4r('RENDERING', 'ERROR', fs1=30, y2=75, fs2=34) # feedback is printed to the display
+            sleep(4)                                  # sleep time in between time checks
+            set_display_backlight(modified_disp,0)    # display backlight is set to min
+
 
 
 
@@ -854,7 +899,7 @@ def stop_or_quit(button, button_press_time):
     global  quitting, button_pressed, stop_shooting
     
     error = 0                                         # error is set to zero (no errors)
-    warn_time = 6                                     # delay used as threshold to print a quit warning on display
+    warn_time = 5                                     # delay used as threshold to print a quit warning on display
     quit_time = 10                                    # delay used as threshold to quit the script
     warning = False                                   # warning is set False, to warn user to keep or release the button
     quitting = False                                  # quitting variable is set False
@@ -866,21 +911,23 @@ def stop_or_quit(button, button_press_time):
                 disp.show_on_disp4r('STOPPED', 'SHOOTING', fs1=37, y2=75, fs2=32) # feedback is printed to the display
                 stop_shooting = True                  # stop shooting is set True
                 warning = True                        # warning is set True
-                sleep(2)                              # wait time to let the message visible on the display
         
         while warning:                                # case warning is True                    
-
-            disp.show_on_disp4r('SURE TO', 'QUIT ?', fs1=36, y2=75, fs2=42) # feedback is printed to display
-            if GPIO.input(button):                    # case the button is released
-                warning = False                       # warning is set False
-                button_pressed = False                # button_pressed is set False
-                set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
-                disp.show_on_disp4r('NOT', 'QUITTING', fs1=42, y2=80, fs2=36) # feedback is printed to display
-                break                                 # while loop is interrupted
-            
-            if time() - button_press_time >= quit_time:  # case time elapsed is >= quit time reference
-                quitting = True                       # quitting variable is set True
-                break                                 # while loop is interrupted
+            if time() - button_press_time >= (warn_time + quit_time)/2:  # case time elapsed is >= warn_time reference
+                if not start_now:                     # case start_now is set (or forced) False
+                    set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
+                    disp.show_on_disp4r('SURE TO', 'QUIT ?', fs1=36, y2=75, fs2=42) # feedback is printed to display
+                if GPIO.input(button):                # case the button is released
+                    warning = False                   # warning is set False
+                    button_pressed = False            # button_pressed is set False
+                    if not start_now:                 # case start_now is set (or forced) False
+                        set_display_backlight(modified_disp,disp_bright)    # display backlight is set to disp_bright
+                        disp.show_on_disp4r('NOT', 'QUITTING', fs1=42, y2=80, fs2=36) # feedback is printed to display
+                    break                             # while loop is interrupted
+                
+                if time() - button_press_time >= quit_time:  # case time elapsed is >= quit time reference
+                    quitting = True                   # quitting variable is set True
+                    break                             # while loop is interrupted
                     
         while quitting:                               # case the keep_quitting variable is True
             print('\n\nQuitting request')             # feedback is printed to display
@@ -942,7 +989,7 @@ def button_action(button):
         button = upper_btn if not GPIO.input(upper_btn) else lower_btn   # button used
         
         if not GPIO.input(button):                    # case button is still pressed once the button_action function is called           
-            while not GPIO.input(button):             # while button is pressed 
+            while not GPIO.input(button):
                 if time() - button_press_time >= debounce_time:   # case time elapsed is >= debounce_time reference
                     if paused:                        # case decision is set False and paused is set True
                         paused = False                # paused is set False
@@ -969,19 +1016,46 @@ def button_action(button):
                 stop_or_quit(button, button_press_time)   # calls (keep calling) the stop_or_quit function
         button_pressed = False                        # button_pressed variable is set False
 
+
+
+
+
+
+def wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time):
+    """Function looping until the shooting start time is reached."""
     
-
-
-
-def wait_until_time(start_time_s, time_left_s, time_for_focus):
-    """Function looping until the ."""
+    now_s, time_left_s = time_update(start_time_s)    # current time, and time left to shooting start, is retrieved again
     
-    if time_left_s > time_for_focus:                  # case the time left for shooting is bigger than time needed for camera focus
-        while time_left_s > time_for_focus:           # while time left for shooting is bigger than time needed for camera focus
-            now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again 
+    if disp_preview:                                  # case the disp_preview is set True
+        t = time_for_focus + preview_show_time        # sum of time for camera focus and display preview is assigned to variable t
+    else:                                             # case the disp_preview is set false
+        t = time_for_focus                            # time for camera focus is assigned to variable t
+    
+    if time_left_s > t:                               # case the time left for shooting is bigger than t
+        while time_left_s > t:                        # while time left for shooting is bigger than time t
+            now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again
             if display and not quitting:              # case display is set True
                 display_time_left(time_left_s)        # prints left lime to display, and pause
-    return now_s, time_left_s                         # last time check is returned
+            if disp_preview:                          # case display_preview
+                preview_shoot_and_show(picam2, camera_started, preview_pic, preview_show_time) # takes and show a picture to the display
+        return now_s, time_left_s                         # last time check is returned
+    
+    if time_left_s >= time_for_focus:                 # case the time left for shooting is bigger than time_for_focus
+        now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again
+        while time_left_s > time_for_focus:           # while time left for shooting is bigger than time time_for_focus
+            if display and not quitting:              # case display is set True
+                display_time_left(time_left_s)        # prints left lime to display, and pause
+        return now_s, time_left_s                         # last time check is returned
+    
+    if time_left_s < 0:                              # case the time left for shooting is smaller than zero
+        # this happens after the shootings of the day are done, and current time is still on that day (waiting for the next day to come)
+        while time_left_s < 0:                       # while the time left for shooting is smaller than zero
+            now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start of the next day
+            if display and not quitting:              # case display is set True
+                display_time_left(time_left_s + 86400) # prints left lime to display, and pause
+            if disp_preview:                          # case display_preview
+                preview_shoot_and_show(picam2, camera_started, preview_pic, preview_show_time) # takes and show a picture to the display
+        return now_s, time_left_s                         # last time check is returned
             
                 
 
@@ -1055,11 +1129,20 @@ def exit_func(error):
             GPIO.output(22,0)                         # set low the GPIO22 (used as for Mini Pi TFT Backlight)
         except:                                       # exception
             print("Failing to set low the GPIO pin 22") # feedback is printed to the terminal
-    
+        
+        
+        if display:
+            try:                                      # tentative approach
+                set_display_backlight(modified_disp, 0)   # lowers the display backlight to min
+            except:                                   # exception
+                pass                                  # do nothing
+        
+        
         try:                                          # tentative approach
             stop_pigpiod()                            # pigpiod server stop request
         except:                                       # exception
             print("Failing to stop pigpiod or not activated yet") # feedback is printed to the terminal
+    
     
     print()                                           # empty line is printed to terminal
     sys.exit(error)                                   # script is quitted with defined error value
@@ -1078,7 +1161,6 @@ if __name__ == "__main__":
     # parent folder where pictures folders are appended (overwritten via settings.txt and eventually via ars)
     parent_folder = '/home/pi/shared'          
     
-    shooting_phase = False                     # flag covering the shooting period, is set False
     rendering_phase = False                    # flag covering the rendering period, is set False
     quitting = False                           # flag covering the quitting phase, is set False
     button_pressed = False                     # button_pressed is set False
@@ -1087,6 +1169,7 @@ if __name__ == "__main__":
     paused_time = 0                            # paused_time variable to manage the time shift due to pause
     last_shoot_time = time()                   # last_shoot_time variable to manage the recover from a pause
     frame = 0                                  # incremental index appended after pictures prefix
+    
     
     
     ################    setting up    ##############################################################
@@ -1212,12 +1295,12 @@ if __name__ == "__main__":
      
     
     ################  interrupt on buttons  ########################################################
-    try:                                       # tentative approach
-        # interrupt usage (of the same input pin)
-        GPIO.add_event_detect(upper_btn, GPIO.FALLING, callback=button_action, bouncetime=20)
-        GPIO.add_event_detect(lower_btn, GPIO.FALLING, callback=button_action, bouncetime=20)
-    except:                                    # exception
-        pass                                   # do nothing
+    if display:                                # case there is the display, and related buttons
+        try:                                   # tentative approach
+            GPIO.add_event_detect(upper_btn, GPIO.FALLING, callback=button_action, bouncetime=20)  # interrupt 
+            GPIO.add_event_detect(lower_btn, GPIO.FALLING, callback=button_action, bouncetime=20)  # interrupt 
+        except:                                # exception
+            pass                               # do nothing
     # ##############################################################################################
     
     
@@ -1232,6 +1315,9 @@ if __name__ == "__main__":
         ret = system(f"sudo chmod 777 {folder}")   # change permissions to the folder: Read, write, and execute by all users
         if ret != 0:                           # case the permission change return an error
             print(f"Issue at changing the folder permissions") # negative feedback printed to terminal
+    
+    preview_pic = os.path.join(folder,"preview.jpg")  # path and filename for the preview picture
+    preview_show_time = 5
     # ###############################################################################################
     
     
@@ -1261,32 +1347,6 @@ if __name__ == "__main__":
     
     
 
-    ################  timing for the shoot management   ############################################
-    try:                                       # tentative approach
-        start_time = datetime.strptime(str(start_hhmm),'%H:%M')  # start_hhmm string is parsed to datetime
-        start_time_s = 3600*start_time.hour + 60*start_time.minute # start_time is converted to seconds (since 00:00)
-        end_time = datetime.strptime(str(end_hhmm),'%H:%M')      # end_hhmm string is parsed to datetime
-        end_time_s = 3600*end_time.hour + 60*end_time.minute     # end_time is converted to seconds (since 00:00)
-    except:                                    # exception
-        sys.exit(print("Variable 'start_hhmm' or 'end_hhmm' do not reppresent a valid time")) # feedback is printed to terminal
-        error = 1                              # error variable is set to 1 (True)
-        if error>0:                            # case of an error
-            exit_func(error)                   # exit function is called
-    
-    if start_now:                              # case start_now is set True
-        hh, mm = period_hhmm.split(':')        # period_hhmm is split in string 'hh' and string 'mm'
-        shoot_time_s = int(hh) * 3600 + int(mm) * 60 # shooting time in seconds is calculated
-        days = 1                               # when start_now only a single period (day) is considered
-                                   
-    else:
-        if end_time_s < start_time_s:          # case end_time is smaller (advance) than start_time, the end_time in on the next day
-            shoot_time_s =  end_time_s + 86400 - start_time_s  # shooting time is calculated
-        else:                                  # case end_time is bigger (later) than start_time, the end_time in on the same day
-            shoot_time_s = end_time_s - start_time_s   # shooting time is calculated
-    # ###############################################################################################
-
-
-
     ################  erasing pictures and movies   #################################################
     if erase_pics:                             # case erase_pics is set True (settings)
         error = make_space(parent_folder)      # emptying the folder from old pictures
@@ -1296,17 +1356,47 @@ if __name__ == "__main__":
     
     
     
+    ################  timing for the shoot management   ############################################
+    try:                                       # tentative approach
+        start_time = datetime.strptime(str(start_hhmm),'%H:%M')  # start_hhmm string is parsed to datetime
+        start_time_s = 3600*start_time.hour + 60*start_time.minute # start_time is converted to seconds (since 00:00)
+        end_time = datetime.strptime(str(end_hhmm),'%H:%M')   # end_hhmm string is parsed to datetime
+        end_time_s = 3600*end_time.hour + 60*end_time.minute  # end_time is converted to seconds (since 00:00)
+    except:                                    # exception
+        sys.exit(print("Variable 'start_hhmm' or 'end_hhmm' do not reppresent a valid time")) # feedback is printed to terminal
+        error = 1                              # error variable is set to 1 (True)
+        if error>0:                            # case of an error
+            exit_func(error)                   # exit function is called
+    
+    if start_now:                              # case start_now is set True
+        hh, mm = period_hhmm.split(':')        # period_hhmm is split in string 'hh' and string 'mm'
+        shoot_time_s = int(hh) * 3600 + int(mm) * 60 # shooting time in seconds is calculated
+                                   
+    else:
+        if end_time_s < start_time_s:          # case end_time is smaller (advance) than start_time, the end_time in on the next day
+            shoot_time_s =  end_time_s + 86400 - start_time_s  # shooting time is calculated
+        else:                                  # case end_time is bigger (later) than start_time, the end_time in on the same day
+            shoot_time_s = end_time_s - start_time_s   # shooting time is calculated
+    # ###############################################################################################
+    
+    
+    
+        
+    # from here onward time is managed in seconds from EPOC time (as per time module)
+    start_time = time()                        # start reference time
+    ref_time = start_time                      # time reference time for shooting
+    
     
     #################################################################################################
     ########################   iterative part of the main program   #################################
     #################################################################################################
-    
+
     for day in range(days):                    # iteration over the days (settings)
         
-        frame_d = 0                            # incremental index per each day used for shooting time
+        frame_d = 0                            # 'frame of the day'. Incremental frame index per each day used for shooting time
         
         if day > 0:                            # case day after the first one
-            if rendering and make_space:       # if rendering makes space
+            if rendering and make_space:       # if rendering and makes space are set True
                 error = make_space(parent_folder)  # emptying the folder from old pictures
         
         disk_Mb = disk_space()                 # disk free space
@@ -1315,58 +1405,56 @@ if __name__ == "__main__":
         fps = round(frames/movie_time_s) if fix_movie_t else fps  # in case fix_movie_t is set True (forced movie time) the fps is calculated
         fps = 1 if fps < 1 else fps            # avoiding fps = 0
      
-        
-        now_s, time_left_s = time_update(start_time_s)   # current time, and time left to shooting start, is retrieved
+        now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved
         
         # startup feedback prints to the terminal
-        printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_time_s, end_time_s,
-                 now_s, time_left_s, shoot_time_s, fps, overlay_fps)
-        
+        printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_now, local_control,
+                 start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps)
         
         if display and not skip_intro:         # case display is set True and skip_intro is set False
             # startup feedback prints to the display
             display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_s)
         
-        if not start_now:                          # case start_now is set False (delayed start)
+        if not start_now:                      # case start_now is set False (delayed start)
             # function that updates the waiting time on the display
-            now_s, time_left_s = wait_until_time(start_time_s, time_left_s, time_for_focus)
+            now_s, time_left_s = wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time)
+            start_time = time()                # start reference time
+            ref_time = start_time              # time reference time for shooting
 
-        # from here onward time is managed in seconds from EPOC time (as per time module)
-        start_time = time()                        # start reference time
-        ref_time = start_time                      # reference time to call the shoot function
-        
+            
         
         # this is the shooting loop
-        # while loop ends when frames quantity is reached, or stop request (buttons, Ctrl+C, etc)
+        # loop ends when frames quantity is reached, or stop request (buttons, Ctrl+C, etc)
         while not stop_shooting:
+            
             if local_control and paused:           # case local conrol is set True and shooting is paused             
                 while paused:                      # while the shooting is paused
+                    if stop_shooting:              # case stop_shooting become True (global variable)
+                        break                      # break the while loop
                     paused_time = time() - last_shoot_time  #  paused time (in secs) is calculated
                     if display and not quitting and not button_pressed:  # case of display, not quitting and not buttons action
                         set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
                         disp.show_on_disp4r('PRESS TO', 'START', fs1=37, y2=75, fs2=37) # feedback is printed to the display
                         sleep(0.5)                 # little time to let visible the plot on display
                         if disp_preview:           # case display_preview
-                            picture = os.path.join(folder, "preview.jpg")   # path and file name for the picture
-                            picam2.capture_file(picture)   # camera takes and save a picture
-                            show_image(picture, 5) # call to the function to show the picture
+                            preview_shoot_and_show(picam2, camera_started, preview_pic, preview_show_time) # takes and show a picture to the display
             
             if camera_started == False:            # case camera_started is set False and almost time to shoot
-                if preview:                        # case preview is set True             
-                    picam2.start_preview(Preview.QTGL) # re-starting the camera preview
-                picam2.start()                     # re-starting the camera
-                camera_started = True              # camera_started is set True
+                camera_started = start_camera(picam2, preview)  # starts the camera
             
-            if time() >= ref_time:                 # case time has reached the shooting moment
-                shooting_phase = True              # variable shooting_phase is set True
-                
+            if time() >= ref_time-time_for_focus:  # case time has reached the shooting moment    
                 if autofocus:                      # case autofocus is set True (settings)
                     focus_ready = picam2.autofocus_cycle(wait=False)   #  autofocus is triggered, and it will return True once ready (not bloccant)
                 else:                              # case autofocus is set False (settings)
                     focus_ready = True             # focus_ready is always True
-                    
+                
+                while time() < ref_time:           # while not yet time for shooting
+                    sleep(0.1)                     # little sleep
+                
                 if not quitting:                   # case quittining is set False
-                    last_shoot_time = shoot(folder, pic_name, frame, pic_format, focus_ready, ref_time, display, disp_image)  # calls the shooting function
+                    # calls the shooting function
+                    last_shoot_time = shoot(folder, pic_name, frame, pic_format, focus_ready, ref_time, display, disp_image, time_for_focus)
+                    
                     if frame_d % 50 == 0:          # case the frame is mutiple of 100
                         t_ref = strftime("%d %b %Y %H:%M:%S", localtime())  # current local time passed as string
                         print('\n' + t_ref, '\t', "frame:", '{:05d}'.format(frame_d), end = ' ', flush=True) # current time and frame feedback to terminal
@@ -1380,7 +1468,7 @@ if __name__ == "__main__":
                         start_time += paused_time  # start time is shifted onward by the paused_time
                         paused_time = 0            # paused_time variable is reset to zero
                     
-                    ref_time = start_time + frame_d * interval_s  # reference time for the next shoot is assigned     
+                    ref_time = start_time + frame_d * interval_s  # reference time for the next shoot is assigned  
             
             # display update after each shoot
             if display and (local_control or frame_d < frames) and not button_pressed:   # case display is set True, and still shooting
@@ -1390,7 +1478,7 @@ if __name__ == "__main__":
                     set_display_backlight(modified_disp,0)  # display backlight is set to min
                     sleep(disp_sleep_time)         # sleep time in between time checks
                     
-                
+            
             if not local_control and frame_d >= frames:  # case local_control is set False and current frame_d equals the daily set frames quantity
                 print()                            # print empty line
                 
@@ -1398,29 +1486,38 @@ if __name__ == "__main__":
                 print(strftime("%d %b %Y %H:%M:%S", localtime()), '\t', "frame:", '{:05}'.format(frame_d-1), " is the last frame")
                 print("Shooting completed")        # feedback is printed to terminal
                 break                              # while loop is interrupted
-
-
-        shooting_phase = False                     # variable shooting_phase is set True
-        stop_shooting = False                      # stop_shooting variable is reset to False
         
-        if display and not quitting:               # case display is set True                              
-            set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
-            disp.show_on_disp4r('FINISHED', 'SHOOTING', fs1=32, y2=75, fs2=32) # feedback is printed to the display
-            sleep(4)                               # sleep time in between time checks
         
-        if preview:                                # case preview is set True
-            picam2.stop_preview()                  # preview stream is stopped
+        # preventing the next program part to be executed until a decision is taken
+        # based on how long a button is kept pressed
+        if display and button_pressed:             # case a button is pressed
+            while button_pressed:                  # while the button is pressed
+                sleep(0.5)                         # short sleep time
         
-        picam2.stop()                              # picamera object is closed
-        camera_started = False                     # camera_started variable is set False
+        if not start_now:                          # case start_now is set False
+            stop_shooting = False                  # stop_shooting variable is reset to False
         
-        if rendering:                              # case rendering is set True
+        if not stop_shooting:                      # case stop_shooting is set False (all shots done)
+            if display:                            # case display is set True                              
+                set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
+                disp.show_on_disp4r('FINISHED', 'SHOOTING', fs1=32, y2=75, fs2=32) # feedback is printed to the display
+                sleep(4)                           # sleep time in between time checks
+            if preview:                            # case preview is set True
+                picam2.stop_preview()              # preview stream is stopped 
+#             picam2.stop()                          # picamera object is closed
+            camera_started = False                 # camera_started variable is set False
+        
+        if rendering and not quitting:             # case rendering is set True and button isn't pressed (as per quitting intention)
+            if disp_preview:                       # case disp_preview is set True
+                os.remove(preview_pic)             # preview picture is removed
             rendering_phase = True                 # rendering_phase variable is set True
             video_render(folder, pic_format, camera_w, camera_h, fps, overlay_text)   # calls to function for video rendering
             rendering_phase = False                # rendering_phase variable is reset tp False
         
+        print("\nCPU temp:", cpu_temp())           # cpu temperature is printed to terminal
         
-        print("\nCPU temp:", cpu_temp())         # cpu temperature is printed to terminal
+        start_time += 86400                        # start_time is shifted onward by one day
+        ref_time = start_time                      # reference time to call the shoot function 
     
     
     if not quitting:                               # case quitting is set False (quitting not already called)
