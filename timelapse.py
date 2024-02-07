@@ -1422,6 +1422,9 @@ if __name__ == "__main__":
             ref_time = start_time              # time reference time for shooting
 
             
+#         now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved
+        start_time = time()                        # start reference time
+        ref_time = start_time                      # time reference time for shooting
         
         # this is the shooting loop
         # loop ends when frames quantity is reached, or stop request (buttons, Ctrl+C, etc)
@@ -1508,8 +1511,10 @@ if __name__ == "__main__":
             camera_started = False                 # camera_started variable is set False
         
         if rendering and not quitting:             # case rendering is set True and button isn't pressed (as per quitting intention)
-            if disp_preview:                       # case disp_preview is set True
-                os.remove(preview_pic)             # preview picture is removed
+            if disp_preview and not start_now:     # case disp_preview is set True
+                if  os.path.exists(disp_preview):  # case the folder does not exist
+                    os.remove(preview_pic)         # preview picture is removed
+
             rendering_phase = True                 # rendering_phase variable is set True
             video_render(folder, pic_format, camera_w, camera_h, fps, overlay_text)   # calls to function for video rendering
             rendering_phase = False                # rendering_phase variable is reset tp False
