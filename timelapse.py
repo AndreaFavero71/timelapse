@@ -3,14 +3,19 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 26 November 2023,
+#  Andrea Favero 07 August 2024,
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera V3 (wide)
+#
+#  Last version (addition): Recovery from power outage
+#  Recovery from power outage works when below parameters are set like:
+#        "date_folder" : "False" (it points to "folder")
+#        "erase_pics" : "False"  (latest picture suffix retrieved to prevent pictures being overwritten)
 #############################################################################################################
 """
 
 
 # __version__ variable
-version = '0.2 (26 Nov 2023)'
+version = '0.3 (07 Aug 2024)'
 
 
 ################  setting argparser for parameter parsing  ######################################
@@ -22,6 +27,10 @@ parser = argparse.ArgumentParser(description='CLI arguments for timelapse.py')
 # --version argument is added to the parser
 parser.add_argument("-v", "--version", help='Shows the script version.', action='version',
                     version=f'%(prog)s ver:{version}')
+
+# --v3_camear argument is added to the parser
+parser.add_argument("--v3_camera", action='store_true',
+                    help="Enable V3 camera (autofocus and HDR functions")
 
 # --debug argument is added to the parser
 parser.add_argument("-d", "--debug", action='store_true',
@@ -59,7 +68,9 @@ args = parser.parse_args()   # argument parsed assignement
 # ###############################################################################################
 
 
-# livraries import
+
+
+# libraries import
 from picamera2 import Picamera2, Preview
 from libcamera import controls
 from os import system
@@ -67,6 +78,8 @@ from time import time, sleep, localtime, strftime
 from datetime import datetime, timedelta
 import os.path, pathlib, stat, sys, json
 import RPi.GPIO as GPIO
+
+
 
 
 
@@ -107,7 +120,7 @@ def check_rpi_zero():
         exit_func(error)                              # exit function is caleld
     return rpi_zero
 
-    
+
 
 
 
@@ -124,6 +137,8 @@ def check_screen_presence():
         if debug:                                     # case debug variable is set True (on __main__ or via argument)
             print('Display function is not availbale') # feedback is printed to the terminal
         return False                                  # function returns False, meaning there is NOT a screen connected
+
+
 
 
 
@@ -145,8 +160,9 @@ def setup():
             settings = json.load(f)                   # json file is parsed to a local dict variable
         
         if debug:                                     # case debug is set True
-            print('\n\nSettings.txt content:')      # Introducing the next print to terminal
-            print(settings)                           # print the settings
+            print('\n\nSettings.txt content:')        # Introducing the next print to terminal
+            for k, v in settings.items():             # iterating over keys values of settings dict
+                print(" ", k, ":", v)                 # print the settings
             print('\n\n')                             # print empty lines
         
         try:                                          # tentative approach
@@ -306,58 +322,142 @@ def setup():
     
     return variables, error                           # error code is returned
 
-   
 
 
 
-def set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, preview):
+
+def set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, preview, v3_camera = False):
+    global picam2
     
     print()                                           # an empry line is printed to terminal
     camera_started = False                            # camera_started variable is set False
     error = 0                                         # error variable is set to 0 (no errors)
     picam2 = Picamera2()                              # camera object
     
+    # check for cv2 presence (info used to set the camera preview mode)
+    try:                                              # tentative approach
+        import cv2                                    # import cv2
+        cv2_available = True                          # cv2_available is set True
+    except:                                           # case of exception (no cv2 library installed)
+        cv2_available = False                         # cv2_available is set False
     
-    if rotate_180:                                    # case rotate_180 variable is set True
+    # camera setting and its preview mode
+    if cv2_available and rotate_180:                  # case rotate_180 variable is set True
+        from libcamera import Transform               # library 
+        camera_conf = picam2.create_preview_configuration(main={"size": (camera_w, camera_h)},
+                                                          lores={"size": (640, 360),
+                                                                 "format": "YUV420"},
+                                                          display="lores",
+                                                          transform=Transform(180))   # camera settings
+    elif cv2_available and not rotate_180:
+        camera_conf = picam2.create_preview_configuration(main={"size": (camera_w, camera_h)},
+                                                          lores={"size": (640, 360),
+                                                                 "format": "YUV420"},
+                                                          display="lores")            # camera setting
+    
+    
+    elif not cv2_available and rotate_180:            # case rotate_180 variable is set True
         from libcamera import Transform               # library 
         camera_conf = picam2.create_preview_configuration(main={"size": (camera_w, camera_h)},
                                                           lores={"size": (640, 360)},
-                                                          display="lores",
-                                                          transform=Transform(180)) # camera settings
+                                                          transform=Transform(180))   # camera settings
     
-    else:                                             # case rotate_180 variable is set False
+    elif not cv2_available and not rotate_180:
         camera_conf = picam2.create_preview_configuration(main={"size": (camera_w, camera_h)},
-                                                      lores={"size": (640, 360)}, display="lores") # camera settings
-        
+                                                          lores={"size": (640, 360)}) # camera settings
+    
     picam2.configure(camera_conf)                     # applying settings to the camera
-    
-    if hdr:                                           # case hdr is set True
-        ret = os.system(f"v4l2-ctl --set-ctrl wide_dynamic_range=1 -d /dev/v4l-subdev0") # hdr on
-    else:                                             # case hdr is set False
-        ret = os.system(f"v4l2-ctl --set-ctrl wide_dynamic_range=0 -d /dev/v4l-subdev0") # hdr off
-    if ret != 0:                                      # case setting the hdr does not return zero
-        print("  HDR setting returned an error")      # feedback is printed to the terminal
-        error = 0.5                                   # error variable is set to 1
-        return error                                  # error code is returned
-    else:                                             # case setting the hdr returns zero
-        sleep(0.5)                                    # little sleep time    
-    
-    if autofocus:                                     # case autofocus is set True
-        picam2.set_controls({"AfMode": controls.AfModeEnum.Auto})  # Autofocus Auto requires a trigger to execute the focus
-    else:                                             # case autofocus is set False
-        focus_dist = 1/focus_dist_m if focus_dist_m > 0 else 10    #preventing zero division; 0.1 meter is the min focus dist (1/0.1=10)
-        picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": focus_dist}) # manual focus; 0.0 is infinite (1/>>), 2 is 50cm (1/0.5)
-    
-    if preview:                                       # case the previes is set True
-        picam2.start_preview(Preview.QTGL)            # preview related function is activated
-    else:                                             # case the previes is set False
-        picam2.start_preview(Preview.NULL)            # preview related function is set Null
+
+    if v3_camera:                                     # case v3_camera is set True
+        if hdr:                                       # case hdr is set True
+            ret = os.system(f"v4l2-ctl --set-ctrl wide_dynamic_range=1 -d /dev/v4l-subdev0") # hdr on
+        else:                                         # case hdr is set False
+            ret = os.system(f"v4l2-ctl --set-ctrl wide_dynamic_range=0 -d /dev/v4l-subdev0") # hdr off
+        if ret != 0:                                  # case setting the hdr does not return zero
+            print("  HDR setting returned an error")  # feedback is printed to the terminal
+            error = 0.5                               # error variable is set to 1
+            return error                              # error code is returned
+        else:                                         # case setting the hdr returns zero
+            sleep(0.5)                                # little sleep time    
+        
+        if autofocus:                                 # case autofocus is set True
+            picam2.set_controls({"AfMode": controls.AfModeEnum.Auto})  # Autofocus Auto requires a trigger to execute the focus
+        else:                                         # case autofocus is set False
+            focus_dist = 1/focus_dist_m if focus_dist_m > 0 else 10    #preventing zero division; 0.1 meter is the min focus dist (1/0.1=10)
+            picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": focus_dist}) # manual focus; 0.0 is infinite (1/>>), 2 is 50cm (1/0.5)
     
     sleep(1)                                          # little sleep time
-    picam2.start()                                    # camera is finally acivated
-    camera_started = True                             # flag to track the camera status
+    camera_started = start_camera(picam2, preview)    # camera is started
+    
+    if preview:                                       # case preview is set True
+        # giving some time for the previw stream to start (and related prints to terminal)
+        ref_t = time()                                # curren epoch time
+        while time() - ref_t < 2:                     # while loop for two seconds
+            sleep(0.1)                                # small sleep time
     
     return picam2, camera_started, error              # camera object, camera_started and error code are returned
+
+
+
+
+
+def start_camera(picam2, preview):
+    """ Starts the camera, after starting the preview stream (if enabled).
+    """    
+    if preview:                                       # case the previes is set True
+        start_preview(picam2)                         # call the start_preview funtion
+    
+    camera_started = False                            # camera_started is set False      
+    try:                                              # tentative approach
+        picam2.start()                                # re-starting the camera
+        camera_started = True                         # camera_started is set True
+    except:                                           # case of exceptions
+        camera_started = False                        # camera_started is set False
+        
+    return camera_started
+
+
+
+
+
+def start_preview(picam2):
+    """ Starts the preview stream. Tentatively QT, QTGL and Null preview
+        Note: If the preview is a black screen, swap GT and QTGL order.
+    """    
+    error = False                                     # error is set False
+    
+    try:                                              # tentative approach
+        picam2.start_preview(Preview.QT)              # preview related function is activated
+    except RuntimeError as e:                         # case of RuntimeError exception
+       if debug:                                      # case debug is set True
+           print(f"Somehow expected error: {e}")      # feedback is printed to the terminal
+       pass                                           # do nothing
+    except Exception as err:                          # case of non-RuntimeError exception
+        print(f"Unexpected error: {err}")             # feedback is printed to the terminal
+        error = True                                  # error is set True
+
+    if error:                                         # case error is set True
+        try:                                          # tentative approach
+            picam2.start_preview(Preview.QTGL)        # preview related function is activated
+            error = False                             # error is set False
+        except RuntimeError as e:                     # case of exception
+            if debug:                                 # case debug is set True
+                print(f"Somehow expected error: {e}")  # feedback is printed to the terminal
+        except Exception as err:                      # case of non-RuntimeError exception
+            if debug:                                 # case debug is set True
+                print(f"Unexpected error: {err}")     # feedback is printed to the terminal
+            error = True                              # error is set True
+ 
+    if error:                                         # case of error
+        try:                                          # tentative approach
+            picam2.start_preview(Preview.NULL)        # preview related function is set Null
+        except RuntimeError as e:                     # case of exception
+            if debug:                                 # case debug is set True
+               print(f"Somehow expected: {e} at 442")   # feedback is printed to the terminal
+        except Exception as err:                      # case of non-RuntimeError exception
+            if debug:                                 # case debug is set True
+                print(f"Unexpected {err} at 445")     # feedback is printed to the terminal
+            pass                                      # do nothing
 
 
 
@@ -385,6 +485,7 @@ def set_gpio(display):
 
 
 
+
 def instructions_info(parameter):
     """ Prints some info on the terminal.
     """
@@ -404,22 +505,6 @@ def instructions_info(parameter):
 
 
 
-def start_camera(picam2, preview):
-    """ Starts the camera and the preview stream.
-    """    
-    camera_started = True                             # camera_started is set True
-    try:                                              # tentative approach
-        if preview:                                   # case preview is set True             
-            picam2.start_preview(Preview.QTGL)        # re-starting the camera preview
-        picam2.start()                                # re-starting the camera
-    except:                                           # case of exceptions
-        camera_started = False                        # camera_started is set False
-    return camera_started
-                
-
-
-
-
 def set_display_backlight(modified_disp, disp_bright):
     """ Sets the display backlight. When the display is modified (simple wire) PWM is applied.
     """
@@ -433,8 +518,68 @@ def set_display_backlight(modified_disp, disp_bright):
             disp.set_backlight(1)                     # backlight is set ON on its intended GPIO pin
         elif disp_bright == 0:                        # case brightness (disp_bright) is set to 0
             disp.set_backlight(0)                     # backlight is set OFF (in reality a pullup keeps it ON)
+
+
+
+
+
+def power_outage_check(parent_folder, folder, pic_format, end_hhmm, interval_s):
+    """ This function is relevant in case of power outage and automatic script start at boot.
+        Returns the frame reference of the last saved picture in parent_folder/folder.
+        Returns the quantity of days already shootted, when multiple shooting days.
+        Returns a boolean if the power outage happened within the shooting period.
+    """
+    import glob
+    search_fname = os.path.join(parent_folder, folder, '*.' + pic_format)  # filename to search all the pic_format in folder
+    saved_pics = sorted(glob.iglob(search_fname), key=os.path.getmtime)  # ordered list of search_fname settings files
+    
+    if len(saved_pics) > 0:                           # case there are files in folder
+        power_outage = False                          # power_outage is set initially False
         
-            
+        oldest_saved_pic = saved_pics[0]              # filename of the oldest picture
+        newest_saved_pic = saved_pics[-1]             # filename of the newest picture
+        last_frame = int(newest_saved_pic[-9:-4])     # integer suffix of the newest picture
+        
+        oldest_pic_time = os.path.getmtime(oldest_saved_pic)  # epoch time of the oldest picture
+        
+        newest_pic_time = os.path.getmtime(newest_saved_pic)  # epoch time of the newest picture
+        newest_pic_time_h = datetime.fromtimestamp(newest_pic_time).hour  # hours from midnight of the newest picture
+        newest_pic_time_m = datetime.fromtimestamp(newest_pic_time).minute   # minutes from the last hour of the newest picture
+        newest_pic_time_s = datetime.fromtimestamp(newest_pic_time).second   # seconds from the last minute of the newest picture
+        newest_pic_time_s += newest_pic_time_h * 3600 + newest_pic_time_m * 60 # seconds from midnight of the newest picture
+        
+        shootted_days = 1 + int((newest_pic_time - oldest_pic_time)//86400)  # days difference between oldest and newest piture             
+        
+        now = time()                                  # current epoch time
+        delta_d = int((newest_pic_time - now)/86400)  # elapsed days from newst picture to today
+        shootted_days += delta_d                      # days from newest picture are added to to shootted_days      
+        
+        end_time = datetime.strptime(str(end_hhmm),'%H:%M')   # end_hhmm string is parsed to datetime
+        end_time_s = 3600*end_time.hour + 60*end_time.minute  # end_time is converted to seconds (since 00:00)
+        
+        if abs(newest_pic_time_s - end_time_s) < 1.5 * interval_s:  # case newest picture is within 1.5 x interval_s from the end shooting time
+            power_outage = False                      # power_outage is set False (no power ourage while shooting)
+        else:                                         # case newest picture is outside 1.5 x interval_s from the end shooting time
+            power_outage = True                       # power_outage is set True  (power ourage while shooting)
+        
+        if debug:                                     # case debug is set True
+            # some prints to the terminal
+            print("\n"*3)
+            print("Debug: Results of power outage check:")
+            print("  oldest_saved_pic:", oldest_saved_pic)
+            print("  newest_saved_pic:", newest_saved_pic)
+            print("  last_frame:", last_frame)
+            print("  shootted_days:", shootted_days)
+            print("  power_outage:", power_outage)
+        
+    else:                                             # case there are no files in folder (start up)
+        last_frame = 0                                # last_frame IS SE TO ZERO
+        shootted_days = 0                             # shootted_days is set to zero
+        power_outage = False                          # power_outage is set to zero
+    
+    return last_frame, shootted_days, power_outage    # function return
+
+
 
 
 
@@ -476,6 +621,7 @@ def make_space(parent_folder):
                         error = 1                     # error variable is set to 1
                     break                             # for loop iteration on files is interrupted
     return error
+
 
 
 
@@ -541,12 +687,14 @@ def preview_shoot_and_show(picam2, camera_started, preview_pic, preview_show_tim
 
 
 
+
 def disk_space():
     """ Checks the disk space (main disk), and returns it in Mb.
     """    
     st = os.statvfs('/')                              # status info from disk file system in root
     bytes_avail = (st.f_bavail * st.f_frsize)         # disk space (free blocks available * fragment size)
     return int(bytes_avail / 1024 / 1024)             # return disk space in Mb
+
 
 
 
@@ -561,8 +709,9 @@ def time_update(start_time_s):
 
 
 
+
 def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_now, local_control,
-             start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps):
+             start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps, v3_camera):
     
     """ Prints the main information to the terminal.
     """
@@ -579,18 +728,19 @@ def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_now, local_cont
     
     print(f"Picture resolution: {camera_w}x{camera_h}")
     
-    if autofocus:
-        print(f"Camera set to autofocus")
-    else:
-        print(f"Camera set to manual focus at {focus_dist_m} meters")
-    
-    print(f"Picture HDR: {hdr}")
+    if v3_camera:
+        print(f"Picture HDR: {hdr}")
+        if autofocus:
+            print(f"Camera set to autofocus")
+        elif not autofocus:
+            print(f"Camera set to manual focus at {focus_dist_m} meters")  
+        
     print(f"Picture format: {pic_format}")
     print(f"Picture file size {str(pic_Mb)} Mb  (picture size varies on subject and light!)")
     print(f"Free disk space: {disk_Mb} Mb")
     print(f"Rough max number of pictures: {max_pics}")
     
-    if days>1:
+    if days > 1 or day > 0:
         print(f"Day {day+1} of {days}")
     
     if start_now:
@@ -612,7 +762,7 @@ def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_now, local_cont
             print(f"Number of pictures limited to about: {frames}, due to staorage space")
     else:
         if days>1:
-            print(f"Camera will take:    {frames} pictures a day")
+            print(f"Camera will take:    {frames} pictures today")
         else:
             print(f"Camera will take:    {frames} pictures")
             
@@ -636,7 +786,8 @@ def printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_now, local_cont
 
 
 
-def display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_s):
+
+def display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_s, v3_camera):
     """ Prints the main information to the display.
     """
     
@@ -647,23 +798,21 @@ def display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_
     if variables['disp_bright']:                      # case autofocus is set True
         disp.show_on_disp4r('BRIGHTNESS', str(variables['disp_bright']) +'%', fs1=26, y2=75, fs2=36)
         sleep(disp_time_s)                            # sleep meant as reading time
-    else:                                             # case autofocus is set False
-        disp.show_on_disp4r('MANUAL FOCUS', 'FOSUS: ' + str(focus_dist_m) + ' m', fs1=22, y2=75, fs2=24)
-        sleep(disp_time_s)                            # sleep meant as reading time
     
-    if variables['autofocus']:                        # case autofocus is set True
-        disp.show_on_disp4r('AUTOFOCUS', 'ACTIVATED', fs1=26, y2=75, fs2=28)
-        sleep(disp_time_s)                            # sleep meant as reading time
-    else:                                             # case autofocus is set False
-        disp.show_on_disp4r('MANUAL FOCUS', 'FOSUS: ' + str(focus_dist_m) + ' m', fs1=22, y2=75, fs2=24)
-        sleep(disp_time_s)                            # sleep meant as reading time
-    
-    if variables['hdr']:                              # case hdr is set True
-        disp.show_on_disp4r('HDR', 'ACTIVATED', fs1=32, y2=75, fs2=30)
-        sleep(disp_time_s)                            # sleep meant as reading time
-    else:                                             # case hdr is set False
-        disp.show_on_disp4r('HDR NOT', 'ACTIVATED', fs1=27, y2=75, fs2=30)
-        sleep(disp_time_s)                            # sleep meant as reading time
+    if v3_camera:                                     # case v3_camera is set True
+        if variables['autofocus']:                    # case autofocus is set True
+            disp.show_on_disp4r('AUTOFOCUS', 'ACTIVATED', fs1=26, y2=75, fs2=28)
+            sleep(disp_time_s)                        # sleep meant as reading time
+        else:                                         # case autofocus is set False
+            disp.show_on_disp4r('MANUAL FOCUS', 'FOSUS: ' + str(focus_dist_m) + ' m', fs1=22, y2=75, fs2=24)
+            sleep(disp_time_s)                        # sleep meant as reading time
+        
+        if variables['hdr']:                          # case hdr is set True
+            disp.show_on_disp4r('HDR', 'ACTIVATED', fs1=32, y2=75, fs2=30)
+            sleep(disp_time_s)                        # sleep meant as reading time
+        else:                                         # case hdr is set False
+            disp.show_on_disp4r('HDR NOT', 'ACTIVATED', fs1=27, y2=75, fs2=30)
+            sleep(disp_time_s)                        # sleep meant as reading time
     
     disp.show_on_disp4r('RESOLUTION', str(variables['camera_w'])+'x'+str(variables['camera_h']),
                         fs1=27, y2=75, fs2=30)
@@ -730,10 +879,12 @@ def display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_
 
 
 
+
 def secs2hhmmss(secs):
     """ Converts a period from seconds to hhmmss. 
     """
     return str(timedelta(seconds=secs))
+
 
 
 
@@ -766,6 +917,7 @@ def display_time_left(time_left_s):
         sleep(1)                                      # sleep when waiting for the planned shooting start
     else:                                             # case time_left_s is less than 12 seconds
         sleep(0.1)                                    # sleep when waiting for the planned shooting start
+
 
 
 
@@ -803,6 +955,7 @@ def shoot(folder, fname, frame, pic_format, focus_ready, ref_time, display, disp
 
 
 
+
 def video_render(folder, pic_format, width, height, fps, overlay_text):
     """ Renders all pictures in folder to a movie.
         Saves the video in folder with proper file datetime file name.
@@ -829,7 +982,7 @@ def video_render(folder, pic_format, width, height, fps, overlay_text):
     else:                                             # case render_progress is set False
         stats = '-nostats'                            # tats parameter is set as not active
     
-    pic_files = os.path.join(parent_folder, folder, '*.' + pic_format)   # imput images files
+    pic_files = os.path.join(parent_folder, folder, '*.' + pic_format)   # input images files
     out_file = os.path.join(parent_folder, folder, strftime("%Y%m%d_%H%M%S", localtime())+'.mp4')  # output video file
     size = str(width)+'x'+str(height)                 # frame size
     
@@ -886,6 +1039,7 @@ def cpu_temp():
     except:                                           # exception
         tFile.close()                                 # file is closed
     return cpu_t                                      # cpu_t is returned
+
 
 
 
@@ -964,8 +1118,7 @@ def stop_or_quit(button, button_press_time):
                 error = 2                             # error coe is set to 2 (quittings the script, without RPI shut off) 
             
             exit_func(error)                          # qutting function is called
-        
-    
+
 
 
 
@@ -1020,8 +1173,7 @@ def button_action(button):
 
 
 
-
-def wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time):
+def wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time, interval_s, start_time_s, end_time_s, camera_started):
     """Function looping until the shooting start time is reached."""
     
     now_s, time_left_s = time_update(start_time_s)    # current time, and time left to shooting start, is retrieved again
@@ -1038,26 +1190,66 @@ def wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time):
                 display_time_left(time_left_s)        # prints left lime to display, and pause
             if disp_preview:                          # case display_preview
                 preview_shoot_and_show(picam2, camera_started, preview_pic, preview_show_time) # takes and show a picture to the display
-        return now_s, time_left_s                         # last time check is returned
+        return now_s, time_left_s, start_time_s       # last time check is returned
     
     if time_left_s >= time_for_focus:                 # case the time left for shooting is bigger than time_for_focus
         now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again
         while time_left_s > time_for_focus:           # while time left for shooting is bigger than time time_for_focus
             if display and not quitting:              # case display is set True
                 display_time_left(time_left_s)        # prints left lime to display, and pause
-        return now_s, time_left_s                         # last time check is returned
+        return now_s, time_left_s, start_time_s       # last time check is returned
     
-    if time_left_s < 0:                              # case the time left for shooting is smaller than zero
+    if time_left_s <= 0:                              # case the time left for shooting is smaller than zero or equals to zero
+        if debug:                                     # case debug is set True
+            print("\nDebug: time_left_s:", time_left_s)
+        
+        # function that updates the waiting time on the display, and loops until the next day is reached
+        now_s, time_left_s, start_time_s = wait_until_next_day(start_time_s, end_time_s, disp_preview, preview_pic,
+                                                               preview_show_time, interval_s, camera_started)
+        return now_s, time_left_s, start_time_s       # last time check is returned
+
+
+
+
+
+def wait_until_next_day(start_time_s, end_time_s, disp_preview, preview_pic, preview_show_time, interval_s, camera_started):
+    """Function looping until the next day is reached."""
+    
+    now_s, time_left_s = time_update(start_time_s)    # current time, and time left to shooting start of the next day
+    
+    if start_time_s - 1.5 * interval_s < now_s < end_time_s - 1.5 * interval_s:    # case within shooting time of the day
+        if debug:                                     # case debug is set True
+            print("\nDebug: within shooting time of the day")
+        return now_s, time_left_s, start_time_s       # last time check is returned
+    
+    else:                                             # case outside shooting time of the day
         # this happens after the shootings of the day are done, and current time is still on that day (waiting for the next day to come)
-        while time_left_s < 0:                       # while the time left for shooting is smaller than zero
+        one_print = True                              # boolean variable for one action in the next while loop
+        while time_left_s < 0:                        # while the time left for shooting is smaller than zero
+    
+            if one_print and debug:                   # case one_print is set True and debug is set True
+                print("Debug: Waiting for the next day")  # feedback is printed to the terminal
+                one_print = False                     # one_print is set False
+                
+#################    debugging way to prevent waiting for a real day change ########################
+#                 sleep(5)
+#                 start_time_s = now_s + 10             # debugging way to prevent a real day change
+#                 print("Debug: Fake next day (setting start_time_s = now_s + 10) for debug purpose\n")
+#                 break
+# ##################################################################################################
+                
             now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start of the next day
             if display and not quitting:              # case display is set True
-                display_time_left(time_left_s + 86400) # prints left lime to display, and pause
+                display_time_left(time_left_s + 86400)  # prints left lime to display, and pause
             if disp_preview:                          # case display_preview
                 preview_shoot_and_show(picam2, camera_started, preview_pic, preview_show_time) # takes and show a picture to the display
-        return now_s, time_left_s                         # last time check is returned
-            
-                
+        
+        # function that updates the waiting time on the display, and loops until the waiting time for next pic is over
+        now_s, time_left_s, start_time_s = wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time,
+                                                interval_s, start_time_s, end_time_s, camera_started)
+        
+        return now_s, time_left_s, start_time_s        # last time check is returned
+
 
 
 
@@ -1079,7 +1271,7 @@ def kill_process(process, nikname):
         result = subprocess.run(cmd, shell=True)      # executing the command to terminate the process, and collecting the output
         if result.returncode == 0:                    # case the returncode equals to zero (command executed with success)
             print(f"Process {nikname} is terminated")  # feedback is printed to the terminal
-                
+
 
 
 
@@ -1094,7 +1286,7 @@ def display_update(day, days, frame_d, frames, interval_s, plot_percentage):
     else:                                             # case of undefined number shoots
         disp.show_on_disp4r('SHOOT', '{:05}'.format(frame_d), fs1=32, y2=75, fs2=34)  # feedback is printed to display
     set_display_backlight(modified_disp,disp_bright)  # display backlight is set to disp_bright
-    
+
 
 
 
@@ -1106,6 +1298,63 @@ def stop_pigpiod():
     else:                                             # case not-zero is returned
         print("\nPigpiod stopping issues")            # feedback is printed to terminal
     sleep(1)                                          # little delay
+
+
+
+
+
+def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
+    try:                                       # tentative approach
+        start_time = datetime.strptime(str(start_hhmm),'%H:%M')  # start_hhmm string is parsed to datetime
+        start_time_s = 3600*start_time.hour + 60*start_time.minute # start_time is converted to seconds (since 00:00)
+        end_time = datetime.strptime(str(end_hhmm),'%H:%M')   # end_hhmm string is parsed to datetime
+        end_time_s = 3600*end_time.hour + 60*end_time.minute  # end_time is converted to seconds (since 00:00)
+    except:                                    # exception
+        sys.exit(print("Variable 'start_hhmm' or 'end_hhmm' do not reppresent a valid time")) # feedback is printed to terminal
+        error = 1                              # error variable is set to 1 (True)
+        exit_func(error)                       # exit function is called
+        
+    if start_now:                              # case start_now is set True
+        hh, mm = period_hhmm.split(':')        # period_hhmm is split in string 'hh' and string 'mm'
+        shoot_time_s = int(hh) * 3600 + int(mm) * 60 # shooting time in seconds is calculated
+                                   
+    elif not start_now:                        # case start_now is set False
+        if end_time_s < start_time_s:          # case end_time_s is smaller (advance) than start_time_s, the end_time_s in on the next day
+            shoot_time_s =  end_time_s + 86400 - start_time_s  # shooting time is calculated   
+        else:                                  # case end_time is bigger (later) than start_time, the end_time in on the same day
+            shoot_time_s = end_time_s - start_time_s  # shooting time is calculated
+            
+            now_s, _ = time_update(start_time_s)  # current time from midnight is retrieved
+            if power_outage:                   # case power_outage is set True
+                if  start_time_s < now_s < end_time_s - 1.5 * interval_s:  # case within shooting time
+                    
+                    if debug:                  # case debug is set True
+                        # some prints to the terminal
+                        print("\n"*3)
+                        print("Debug: Time adjustment because of recovery from power_outage within shooting time")
+                        print("  Original start_time_s:", start_time_s)
+                        print("  Original shoot_time_s:", shoot_time_s)
+                    
+                    now_h = datetime.fromtimestamp(time()).hour   # hours from midnight
+                    now_m = datetime.fromtimestamp(time()).minute   # minutes from midnight
+                    start_time_s = now_h * 3600 + (now_m + 1) * 60   # start_time_s = the start of the next minute (secs from midnight)
+                    shoot_time_s =  end_time_s - start_time_s   # shooting time is calculated from start_time_s until end_time_s
+                    
+                    if debug:                  # case debug is set True
+                        # some prints to the terminal with updated values
+                        print("  New start_time_s:", start_time_s)
+                        print("  New shoot_time_s:", shoot_time_s)
+                    
+                    if end_time_s - now_s < 1.5 * interval_s:  # case of almosto to the end of shooting time
+                        if debug:                  # case debug is set True
+                            print("Power outage recovery almost to the end of shooting time")
+                        
+                        while end_time_s - now_s < 0.5 * interval_s:  # looping until  of almosto to the end of shooting time
+                            now_s, _ = time_update(start_time_s)  # current time from midnight is retrieved
+                            sleep(0.1)  # small sleep time
+    
+    return start_time_s, end_time_s, shoot_time_s
+
 
 
 
@@ -1154,11 +1403,12 @@ def exit_func(error):
 
 if __name__ == "__main__":
     
-    global paused, button_pressed, paused_time, quitting, stop_shooting
+    global paused, button_pressed, paused_time, quitting, stop_shooting, display
     
+    ################    initial setting, likely ovewritten later on    #############################
     print()                                    # empty line is printed
     
-    # parent folder where pictures folders are appended (overwritten via settings.txt and eventually via ars)
+    # parent folder where pictures folders are appended (overwritten via settings.txt and eventually via args)
     parent_folder = '/home/pi/shared'          
     
     rendering_phase = False                    # flag covering the rendering period, is set False
@@ -1168,7 +1418,9 @@ if __name__ == "__main__":
     paused = True                              # flag to start and pause shooting when local_control is set True
     paused_time = 0                            # paused_time variable to manage the time shift due to pause
     last_shoot_time = time()                   # last_shoot_time variable to manage the recover from a pause
-    frame = 0                                  # incremental index appended after pictures prefix
+    frame = 0                                  # incremental index appended after pictures suffix
+    last_frame = 0                             # last frame is the last saved picture suffix if power outage
+    # ##############################################################################################
     
     
     
@@ -1177,7 +1429,8 @@ if __name__ == "__main__":
     if args.debug != None:                     # case 'debug' argument exists
         if args.debug:                         # case the script has been launched with 'debug' argument
             debug = True                       # flag to enable/disable the debug related prints is set True
-        
+    
+#     display = False                            # display is initilly set False
     error = 0                                  # error value for the script quitting (0 means no errors)
     try:
         variables, error = setup()             # retrieves settings, and initializes things
@@ -1238,6 +1491,11 @@ if __name__ == "__main__":
         if args.skip_intro:                    # case the script has been launched with 'skip_intro' argument
             skip_intro = True                  # flag to enable/disable introduction info on display is set True
     
+    v3_camera = False                          # v3_camera flag is set False
+    if args.v3_camera != None:                 # case 'v3_camera' argument exists
+        if args.v3_camera:                     # case the script has been launched with 'v3_camera' argument
+            v3_camera = True                   # flag to enable/disable usage of v3_camera functions is set True
+    
     if args.parent != None:                    # case the script has been launched with 'parent' (folder) argument
         parent_folder = args.parent            # the parent string arg is assigned to the parent_folder variable
         parent_folder = parent_folder.strip()  # parent_folder text cleaned by pre/post characters
@@ -1277,9 +1535,9 @@ if __name__ == "__main__":
     
     if debug:                                  # case debug is set True
         print('\n\nVariables, and settings (eventually altered via args):')   # Introducing the next print to terminal
-        print(variables)                        # print the settings
+        for k,v in variables.items():          # iterating over keys values of the variables dict
+            print(" ",k, ":", v)               # print the settings
         print('\n\n')                          # print empty lines
-        
     # ############################################################################################### 
     
     
@@ -1305,7 +1563,7 @@ if __name__ == "__main__":
     
     
     
-    ################  folder presence check / creation  ############################################
+    ################  picture folder presence check / creation  ####################################
     if date_folder:                            # case date_folder is set True
         folder = str(datetime.today().strftime('%Y%m%d'))  # folder name is retrieved as yyyymmdd
     folder = os.path.join(parent_folder, folder) # folder will be appended to the parent folder
@@ -1338,10 +1596,10 @@ if __name__ == "__main__":
 
     
     
-    ################  camera test   ################################################################
-    pic_test_fname = os.path.join(parent_folder, folder, 'picture_test.'+pic_format)   # name for the test picture
+    ################  camera test   #################################################################
+    pic_test_fname = os.path.join(parent_folder, folder, 'picture_test.' + pic_format)   # name for the test picture
     error, pic_size_bytes, pic_Mb = test_camera(pic_test_fname)         # test picture is made, measured, removed
-    if error>0:                                # case of an error
+    if error > 0:                              # case of an error
         exit_func(error)                       # exit function is called
     # ###############################################################################################
     
@@ -1350,54 +1608,76 @@ if __name__ == "__main__":
     ################  erasing pictures and movies   #################################################
     if erase_pics:                             # case erase_pics is set True (settings)
         error = make_space(parent_folder)      # emptying the folder from old pictures
-    if error>0:                                # case of an error
+    if error > 0:                              # case of an error
         exit_func(error)                       # exit function is called
     # ###############################################################################################
     
     
     
-    ################  timing for the shoot management   ############################################
-    try:                                       # tentative approach
-        start_time = datetime.strptime(str(start_hhmm),'%H:%M')  # start_hhmm string is parsed to datetime
-        start_time_s = 3600*start_time.hour + 60*start_time.minute # start_time is converted to seconds (since 00:00)
-        end_time = datetime.strptime(str(end_hhmm),'%H:%M')   # end_hhmm string is parsed to datetime
-        end_time_s = 3600*end_time.hour + 60*end_time.minute  # end_time is converted to seconds (since 00:00)
-    except:                                    # exception
-        sys.exit(print("Variable 'start_hhmm' or 'end_hhmm' do not reppresent a valid time")) # feedback is printed to terminal
-        error = 1                              # error variable is set to 1 (True)
-        if error>0:                            # case of an error
-            exit_func(error)                   # exit function is called
-    
-    if start_now:                              # case start_now is set True
-        hh, mm = period_hhmm.split(':')        # period_hhmm is split in string 'hh' and string 'mm'
-        shoot_time_s = int(hh) * 3600 + int(mm) * 60 # shooting time in seconds is calculated
-                                   
-    else:
-        if end_time_s < start_time_s:          # case end_time is smaller (advance) than start_time, the end_time in on the next day
-            shoot_time_s =  end_time_s + 86400 - start_time_s  # shooting time is calculated
-        else:                                  # case end_time is bigger (later) than start_time, the end_time in on the same day
-            shoot_time_s = end_time_s - start_time_s   # shooting time is calculated
+    ################  check for power outage while shooting  ########################################
+    power_outage = False                       # power_outage flag is initially set False
+    if not date_folder and not start_now:      # case date_folder and start_now are set False (at settings)
+        last_frame, past_days, power_outage = power_outage_check(parent_folder, folder, pic_format, end_hhmm, interval_s)
+        if last_frame != 0:                    # case last_frame does not equal to zero
+            frame = last_frame + 1             # last_frame (plus one) is assigned to frame
     # ###############################################################################################
     
     
     
-        
-    # from here onward time is managed in seconds from EPOC time (as per time module)
+    ################  timing for the shoot management   ############################################
+    # in this call to the function the power_outage plays a role
+    start_time_s, end_time_s, shoot_time_s = time_management(start_hhmm,
+                                                             end_hhmm,
+                                                             start_now,
+                                                             interval_s,
+                                                             power_outage) 
+    # ###############################################################################################
+    
+    
+    
+    ################  change time management system  ################################################
+    # NOTE: from here onward time is managed in seconds from EPOCH time (as per 'time' module)
     start_time = time()                        # start reference time
     ref_time = start_time                      # time reference time for shooting
+    # ###############################################################################################
+    
+    
+    
+    ################  print current date and time  (when debug is set True) #########################
+    if debug:                                  # case debug is set True
+        now_t = datetime.fromtimestamp(time()) # current day and time
+        now_s, time_lefts_s = time_update(start_time_s)   # current epoch time in seconds
+        # some prints to the terminal
+        print("\n"*3)
+        print("Debug: Prints date and time references in different time method:")
+        print("  Current date and time:", now_t)
+        print("  Epoch current time (s):", now_s)
+        print("  Epoch start_time_s (s):", start_time_s)
+        print("  Epoch end_time_s (s):", end_time_s)
+        print("  Epoch shooting time shoot_time_s (s):", shoot_time_s)
+        print("  Shooting time (hh:mm:ss):", secs2hhmmss(shoot_time_s))
+        print("  Shooting starts in (s):", time_lefts_s)
+        print("  Shooting starts in (hh:mm:ss):", secs2hhmmss(time_lefts_s))
+    # ###############################################################################################
+    
+    
     
     
     #################################################################################################
-    ########################   iterative part of the main program   #################################
+    #####################################   Looping over days  ######################################
     #################################################################################################
-
-    for day in range(days):                    # iteration over the days (settings)
+    
+    day = 0                                    # zero is assigned to variable day (first day)
+    while day < days:                          # iteration over the days (settings)
+    
+        if past_days > 0:                      # case there are shootted days (recovery from power outage)
+            day += past_days                   # days variable is decremented by past_days
+            past_days = 0                      # zero is assigned to past_days
         
-        frame_d = 0                            # 'frame of the day'. Incremental frame index per each day used for shooting time
+        frame_d = 0                            # frame_d (frame of the day) is set to zero
         
-        if day > 0:                            # case day after the first one
-            if rendering and make_space:       # if rendering and makes space are set True
-                error = make_space(parent_folder)  # emptying the folder from old pictures
+        if rendering and make_space:           # if rendering and makes space are set True
+            error = make_space(parent_folder)  # emptying the folder from old pictures
         
         disk_Mb = disk_space()                 # disk free space
         max_pics = int(disk_Mb/pic_Mb)         # rough amount of allowed pictures quantity in disk
@@ -1409,26 +1689,31 @@ if __name__ == "__main__":
         
         # startup feedback prints to the terminal
         printout(day, days, pic_Mb, disk_Mb, max_pics, frames, start_now, local_control,
-                 start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps)
+                 start_time_s, end_time_s, now_s, time_left_s, shoot_time_s, fps, overlay_fps, v3_camera)
         
         if display and not skip_intro:         # case display is set True and skip_intro is set False
             # startup feedback prints to the display
-            display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_s)
+            display_info(variables, pic_Mb, disk_Mb, max_pics, frames, now_s, time_left_s, v3_camera)
         
         if not start_now:                      # case start_now is set False (delayed start)
-            # function that updates the waiting time on the display
-            now_s, time_left_s = wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time)
-            start_time = time()                # start reference time
-            ref_time = start_time              # time reference time for shooting
-
-            
-#         now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved
-        start_time = time()                        # start reference time
-        ref_time = start_time                      # time reference time for shooting
+            # function that updates the waiting time on the display, and loops until the waiting time for next pic is over
+            now_s, time_left_s, start_time_s = wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time,
+                                                          interval_s, start_time_s, end_time_s, camera_started)
         
-        # this is the shooting loop
+        if preview:                            # case preview is set True
+            start_preview(picam2)              # preview stream is started
+        
+        start_time = time()                    # start reference time
+        ref_time = start_time                  # time reference time for shooting
+        
+        
+        
+        #############################################################################################
+        #############################   shooting loop within a day  #################################
+        ############################################################################################# 
+
         # loop ends when frames quantity is reached, or stop request (buttons, Ctrl+C, etc)
-        while not stop_shooting:
+        while not stop_shooting:                   # while loop until stop_shooting is False
             
             if local_control and paused:           # case local conrol is set True and shooting is paused             
                 while paused:                      # while the shooting is paused
@@ -1458,7 +1743,7 @@ if __name__ == "__main__":
                     # calls the shooting function
                     last_shoot_time = shoot(folder, pic_name, frame, pic_format, focus_ready, ref_time, display, disp_image, time_for_focus)
                     
-                    if frame_d % 50 == 0:          # case the frame is mutiple of 100
+                    if frame_d % 50 == 0:  # case the frame is mutiple of 100
                         t_ref = strftime("%d %b %Y %H:%M:%S", localtime())  # current local time passed as string
                         print('\n' + t_ref, '\t', "frame:", '{:05d}'.format(frame_d), end = ' ', flush=True) # current time and frame feedback to terminal
                     else:                          # case the frame is not mutiple of 100
@@ -1491,6 +1776,10 @@ if __name__ == "__main__":
                 break                              # while loop is interrupted
         
         
+        ############################################################################################
+        ###############################   shoot end of the day   ###################################
+        # ##########################################################################################
+        
         # preventing the next program part to be executed until a decision is taken
         # based on how long a button is kept pressed
         if display and button_pressed:             # case a button is pressed
@@ -1507,7 +1796,8 @@ if __name__ == "__main__":
                 sleep(4)                           # sleep time in between time checks
             if preview:                            # case preview is set True
                 picam2.stop_preview()              # preview stream is stopped 
-#             picam2.stop()                          # picamera object is closed
+            
+            picam2.stop()                          # picamera object is closed
             camera_started = False                 # camera_started variable is set False
         
         if rendering and not quitting:             # case rendering is set True and button isn't pressed (as per quitting intention)
@@ -1521,9 +1811,28 @@ if __name__ == "__main__":
         
         print("\nCPU temp:", cpu_temp())           # cpu temperature is printed to terminal
         
-        start_time += 86400                        # start_time is shifted onward by one day
-        ref_time = start_time                      # reference time to call the shoot function 
+        
+        # AF: Double check if next two rows are really needed
+#         start_time += 86400                        # start_time is shifted onward by one day
+#         ref_time = start_time                      # reference time to call the shoot function
+        
+        # call to time_management function to get rid of eventual time adjustments caused by recovery from power outage
+        start_time_s, end_time_s, shoot_time_s = time_management(start_hhmm, end_hhmm, start_now,
+                                                                 interval_s, power_outage = False)
+        
+        day += 1                                   # iterator day is incremented (end of the while loop)
+
+    #################################################################################################
+    ####################################   Loop end over days  ######################################
+    # ###############################################################################################
     
-    
+
+
+
+    #################################################################################################
+    ######################################   closing stuff  #########################################
+    #################################################################################################
     if not quitting:                               # case quitting is set False (quitting not already called)
-        exit_func(error)                           # exit function is called
+        exit_func(error)                           # exit function is called  
+    # ###############################################################################################
+
