@@ -84,6 +84,18 @@ Note: To prevent the script from executing at boot, edit the crontab, comment ou
 <br /><br /><br /><br />
 
 
+## Recovery from power outage
+This is especially relevant when the system is used for long periods, and power outage might happens. <br />
+1. Set the automatic scrip to start at Boot. <br />
+2. Set "date_folder" : "False" <br />
+3. Set "erase_pics" : "False" <br />
+4. Set "start_now" : "False" (use start start_hhmm and stop_hhmm to define the shooting period. Note that start_hhmm could be set to an earlier time than when you're going to start the system).<br />
+
+After the power outage, Raspberry Pi boots and the code checks for the latest picture suffix as reference for the next new picture.<br />
+In case of multiple days shooting, the days already covered by shooting (partially or fully) are counted (full days without power are also counted). Counted days are detracted from the total days set in settings, to complete the shooting as per schedule.
+<br /><br /><br /><br />
+
+
 ## Parts
 Total cost of the project is ca 130€ (plus shipments) <br />
 - 1x [Raspberry Pi 4b](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/) (ca 59€) <br />
