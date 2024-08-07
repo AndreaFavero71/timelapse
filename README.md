@@ -1,6 +1,6 @@
 # Timelapse system with Raspberry Pi 4b and PiCamera V3 (wide)
 
-#### Relevant files to make a timelapse system based on Raspberry Pi 4b and PiCamera V3 wide
+#### timelapse system based on Raspberry Pi 4b and PiCamera V3 wide
 
 The Picamera V3 has interesting characteristics, like auto-focus and HDR;<br />
 It comes with Horizontal field of view (102 degrees) or normal (66 degrees), eventually without IR filter (noIR version).<br />
@@ -61,10 +61,57 @@ Other options are:
 - Usage of the display at Raspberry Pi (true/false).
 - Some parameters for the display, like width, height, horizontal and vertical shif, orientation.<br />
 
+
 ### Notes:
 1. Boolean variables can be set as true/false or 1/0 or yes/no or.... .<br />
 2. In case the movie is not sattisfactory: Via the script video_render.py the video can be (re)made by changing some parameters. For this reason, the pictures aren't automatically erased after a job completion; pictures are automatically erased at the start of a new job.<br />
 3. I found convenient to share a Raspberry Pi folder via SMB protocol, allowing quick access via a pc. For this reason, the pictures_folder is generated in the shared folder. The [installation file](/setup/installation_steps.txt) gives instructions also for this function.
+
+A resume picture of the setting is available [here](https://github.com/AndreaFavero71/timelapse/blob/main/pictures/settings.png) <br />
+More info at [instructable page of this project](https://www.instructables.com/Timelapse-With-Raspberry-Pi-4b-and-PiCamera-V3-wid/) <br />
+<br /><br /><br /><br />
+
+
+## Usage:
+1. Switch on the Raspberry Pi.<br />
+2. Connect to it; If you want a camera preview, a remote desktop connection is necessary like VNC Viewer.<br />
+3. The relevant files are into the timelapse folder: ```cd timelapse```<br />
+4. Edit the settings.txt file (quite self explanatory) and set the parameters according to your needs: ```nano settings.txt``` (save the file, with Ctrl + X, followed by Y, followed by Enter)<br />
+5. Run the script: ```python timelapse.py``` (changes at the settings are only loaded at the scrip start). Arguments can be passed.<br />
+
+Feedbacks on the display:<br />
+- At the start it shows the main settings, including an estimation of pictures quantity the microSD can store<br />
+- Time left for the first picture<br />
+- After the first picture is taken, it indicates the picture progressive number<br />
+- After the last picture is taken, if set, it indicates the video editing status<br />
+
+In case the movie is not sattisfactory: Via the script video_render.py the video can be (re)made by changing some parameters. For this reason, when set, the pictures aren't automatically erased after a job completion; pictures are automatically erased at the start of a new job.<br />
+By pressing one of the buttons for 5 seconds the cycle is stopped<br />
+By pressing one of the buttons for more than 10 seconds the script is quitted; If the automating shut-off is set, this is the way to safely close stuff before unpowering the Raspberry Pi.<br />
+<br /><br /><br /><br />
+
+
+## Different methods defining the shooting approach:<br />
+1) Shooting predefined between start_hhmm and stop_hhmm, for one or multiple days:<br />
+- Set start_now as False and local_control as False.<br />
+- Set start_hhmm and stop_hhmm to define the shooting period.<br />
+- This method ends automatically, once the stop_hhmm of the last day is reached.<br /><br />
+
+
+2) Shooting starting once the script is launced (eventually automated at the Raspberry Pi boot), and lasting for the period_hhmm:
+- Set start_now as True and local_control as False.<br />
+- Set period_hhmm to define how long the shooting period should last.<br />
+- Also in this case the pictures quantity are predefined.<br />
+To extend the shooting over days, weeks, etc, more than 2 digits can be set at the hours of period_hhmm (i.e. set '1000:30' to shoot for 1000 hours and 30 minutes).<br /><br />
+
+
+3) By manually starting and pausing the shooting, eventually multiple times, via the buttons on the display:
+- Set local_control as True.
+- In this case the pictures quantity aren't predefined.
+In all cases:
+  - The interval between shots is defined by interval_s
+  - A long press (>10 secs), of one of the buttons, will terminate the shooting and the script.
+
 <br /><br /><br /><br />
 
 
@@ -105,6 +152,12 @@ Total cost of the project is ca 130€ (plus shipments) <br />
 - 1x microSD V30 32Gb or higher (ca 10€) <br />
 - Screws (see [screws list](/stl/screws_list.txt)) <br />
 - Filament for the 3D printer <br />
+<br /><br /><br />
+
+
+## More info:
+A resume picture of the setting is available [here](https://github.com/AndreaFavero71/timelapse/blob/main/pictures/settings.png) <br />
+More info at [instructable page of this project](https://www.instructables.com/Timelapse-With-Raspberry-Pi-4b-and-PiCamera-V3-wid/) <br />
 <br /><br /><br />
 
 
