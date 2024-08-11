@@ -3,7 +3,7 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 19 November 2023, Timelaps application
+#  Andrea Favero 11 August 2024, Timelaps application
 #############################################################################################################
 """
 
@@ -137,7 +137,7 @@ class Display:
         digits = len(days)                                       # number digits of string of days
         day = str(day).zfill(digits)                             # active day in as string with heading zeros
         day_info = 'DAY ' + day + ' OF ' + days                  # string of shoot number
-        fs = 22 + 2*(digits-1)                                   # font size, adjusted according to digits number
+        fs = 21 + 2*(digits-1)                                   # font size, adjusted according to digits number
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fs)  # font and size
         disp_draw.text((10, 50), day_info, font=font, fill=(255, 255, 255))  # text with shoot number
         

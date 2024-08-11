@@ -3,7 +3,7 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 07 August 2024,
+#  Andrea Favero 11 August 2024,
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera V3 (wide)
 #
 #  Last version (addition): Recovery from power outage
@@ -15,7 +15,7 @@
 
 
 # __version__ variable
-version = '0.3 (07 Aug 2024)'
+version = '0.4 (11 Aug 2024)'
 
 
 ################  setting argparser for parameter parsing  ######################################
@@ -430,10 +430,10 @@ def start_preview(picam2):
         picam2.start_preview(Preview.QT)              # preview related function is activated
     except RuntimeError as e:                         # case of RuntimeError exception
        if debug:                                      # case debug is set True
-           print(f"Somehow expected error: {e}")      # feedback is printed to the terminal
+           print(f"Debug: Somehow expected error Preview.QT '{e}'") # feedback is printed to the terminal
        pass                                           # do nothing
     except Exception as err:                          # case of non-RuntimeError exception
-        print(f"Unexpected error: {err}")             # feedback is printed to the terminal
+        print(f"Unexpected error Preview.QT: {err}")  # feedback is printed to the terminal
         error = True                                  # error is set True
 
     if error:                                         # case error is set True
@@ -442,10 +442,10 @@ def start_preview(picam2):
             error = False                             # error is set False
         except RuntimeError as e:                     # case of exception
             if debug:                                 # case debug is set True
-                print(f"Somehow expected error: {e}")  # feedback is printed to the terminal
+                print(f"Somehow expected error Preview.QTGL '{e}'")  # feedback is printed to the terminal
         except Exception as err:                      # case of non-RuntimeError exception
             if debug:                                 # case debug is set True
-                print(f"Unexpected error: {err}")     # feedback is printed to the terminal
+                print(f"Unexpected error Preview.QTGL: {err}")  # feedback is printed to the terminal
             error = True                              # error is set True
  
     if error:                                         # case of error
@@ -523,61 +523,61 @@ def set_display_backlight(modified_disp, disp_bright):
 
 
 
-def power_outage_check(parent_folder, folder, pic_format, end_hhmm, interval_s):
+def power_outage_check(parent_folder, folder, pic_format, start_hhmm, end_hhmm, interval_s):
     """ This function is relevant in case of power outage and automatic script start at boot.
         Returns the frame reference of the last saved picture in parent_folder/folder.
         Returns the quantity of days already shootted, when multiple shooting days.
         Returns a boolean if the power outage happened within the shooting period.
     """
     import glob
-    search_fname = os.path.join(parent_folder, folder, '*.' + pic_format)  # filename to search all the pic_format in folder
-    saved_pics = sorted(glob.iglob(search_fname), key=os.path.getmtime)  # ordered list of search_fname settings files
+    search_fname = os.path.join(parent_folder, folder, '*.' + pic_format)    # filename to search all the pic_format in folder
+    saved_pics = sorted(glob.iglob(search_fname), key=os.path.getmtime)      # ordered list of search_fname settings files
     
-    if len(saved_pics) > 0:                           # case there are files in folder
-        power_outage = False                          # power_outage is set initially False
+    if len(saved_pics) > 0:                                         # case there are files in folder
+        power_outage = False                                        # power_outage is set initially False
         
-        oldest_saved_pic = saved_pics[0]              # filename of the oldest picture
-        newest_saved_pic = saved_pics[-1]             # filename of the newest picture
-        last_frame = int(newest_saved_pic[-9:-4])     # integer suffix of the newest picture
+        # searching filename of oldest and newest pictures
+        oldest_saved_pic = saved_pics[0]                            # filename of the oldest picture
+        newest_saved_pic = saved_pics[-1]                           # filename of the newest picture
+        last_frame = int(newest_saved_pic[-9:-4])                   # integer suffix of the newest picture
         
-        oldest_pic_time = os.path.getmtime(oldest_saved_pic)  # epoch time of the oldest picture
         
-        newest_pic_time = os.path.getmtime(newest_saved_pic)  # epoch time of the newest picture
-        newest_pic_time_h = datetime.fromtimestamp(newest_pic_time).hour  # hours from midnight of the newest picture
-        newest_pic_time_m = datetime.fromtimestamp(newest_pic_time).minute   # minutes from the last hour of the newest picture
-        newest_pic_time_s = datetime.fromtimestamp(newest_pic_time).second   # seconds from the last minute of the newest picture
-        newest_pic_time_s += newest_pic_time_h * 3600 + newest_pic_time_m * 60 # seconds from midnight of the newest picture
+        # counting (full) days from 1st picture until today
+        oldest_pic_time = os.path.getmtime(oldest_saved_pic)        # epoch time (s) of the oldest picture
+        oldest_pic_time_d = int(oldest_pic_time//86400)             # epoch time (days) of the oldest picture
+        shot_days = int(time()//86400) - oldest_pic_time_d          # days difference between today and oldest picture
         
-        shootted_days = 1 + int((newest_pic_time - oldest_pic_time)//86400)  # days difference between oldest and newest piture             
         
-        now = time()                                  # current epoch time
-        delta_d = int((newest_pic_time - now)/86400)  # elapsed days from newst picture to today
-        shootted_days += delta_d                      # days from newest picture are added to to shootted_days      
+        # checking for power outage (last picture was taken not reaching the expected shooting end period)
+        newest_pic_time = os.path.getmtime(newest_saved_pic)                    # epoch time (s) of the newest pictur
+        newest_pic_time_h = datetime.fromtimestamp(newest_pic_time).hour        # hours from midnight of the newest picture
+        newest_pic_time_m = datetime.fromtimestamp(newest_pic_time).minute      # minutes from the last hour of the newest picture
+        newest_pic_time_s = datetime.fromtimestamp(newest_pic_time).second      # seconds from the last minute of the newest picture
+        newest_pic_time_s += newest_pic_time_h * 3600 + newest_pic_time_m * 60  # seconds from midnight of the newest picture
+
+        _, end_time_s, _ = start_time_end_time(start_hhmm, end_hhmm, interval_s)  # gets the end_time as seconds from midnight
+
+        if abs(newest_pic_time_s - end_time_s) < 1.5 * interval_s:  # case newest picture is within 1.5 x interval_s from the end of shooting time
+            power_outage = False                                    # power_outage is set False (no power outage while shooting)
+        else:                                                       # case newest picture is outside 1.5 x interval_s from the end shooting time
+            power_outage = True                                     # power_outage is set True  (power outage while shooting)
         
-        end_time = datetime.strptime(str(end_hhmm),'%H:%M')   # end_hhmm string is parsed to datetime
-        end_time_s = 3600*end_time.hour + 60*end_time.minute  # end_time is converted to seconds (since 00:00)
-        
-        if abs(newest_pic_time_s - end_time_s) < 1.5 * interval_s:  # case newest picture is within 1.5 x interval_s from the end shooting time
-            power_outage = False                      # power_outage is set False (no power ourage while shooting)
-        else:                                         # case newest picture is outside 1.5 x interval_s from the end shooting time
-            power_outage = True                       # power_outage is set True  (power ourage while shooting)
-        
-        if debug:                                     # case debug is set True
+        if debug:   # case debug is set True
             # some prints to the terminal
-            print("\n"*3)
+            print("\n"*2)
             print("Debug: Results of power outage check:")
-            print("  oldest_saved_pic:", oldest_saved_pic)
-            print("  newest_saved_pic:", newest_saved_pic)
-            print("  last_frame:", last_frame)
-            print("  shootted_days:", shootted_days)
+            print("  oldest_saved_pic fname:", oldest_saved_pic)
+            print("  newest_saved_pic fname:", newest_saved_pic)
+            print("  last_frame suffix number:", last_frame)
+            print("  shot_days:", shot_days, "(today - 1st picture day)")
             print("  power_outage:", power_outage)
         
     else:                                             # case there are no files in folder (start up)
         last_frame = 0                                # last_frame IS SE TO ZERO
-        shootted_days = 0                             # shootted_days is set to zero
+        shot_days = 0                                 # shot_days is set to zero
         power_outage = False                          # power_outage is set to zero
     
-    return last_frame, shootted_days, power_outage    # function return
+    return last_frame, shot_days, power_outage        # function return
 
 
 
@@ -936,11 +936,17 @@ def shoot(folder, fname, frame, pic_format, focus_ready, ref_time, display, disp
     
     while time() < ref_time:                          # while it isn't time to shoot yet
         sleep(0.05)                                   # short sleep
+
+    if lux_check:                                     # case lux_check is set True (variable set at __main__ )
+        metadata = picam2.capture_metadata()          # camera is inquired
+        estimated_lux = metadata["Lux"]               # estimated lux from the camera is assigned
+        if estimated_lux < min_lux_threshold:         # case the estimated lux is smaller than the min_lux_threshold (set at __main__)
+            return False, time()                      # boolean (picture not taken), time reference of last (skipped) shoot is returned
     
     pic_name = '{}_{:05}.{}'.format(fname, frame, pic_format)  # file name construction for the picture
     picture = os.path.join(folder, pic_name)          # path and file name for the picture
     camera_info = picam2.capture_file(picture)        # camera takes and save a picture
-#     print("  Camera_info at picture taking", camera_info)  # camera info are printed to the terminal
+#     print("\n  Camera_info at picture taking", camera_info)  # camera info are printed to the terminal
     last_shoot_time = time()                          # current time is assigned to last_shoot_time 
     
     if display and disp_image:                        # case display_image is set True
@@ -950,7 +956,7 @@ def shoot(folder, fname, frame, pic_format, focus_ready, ref_time, display, disp
     if ret != 0:                                      # case the permission change return an error
         print(f"Issue at permissions changing of picture file ")  # negative feedback printed to terminal
     
-    return last_shoot_time                            # time reference of last shoot is returned
+    return True, last_shoot_time                      # boolean (picture taken), time reference of last shoot is returned
 
 
 
@@ -1183,8 +1189,8 @@ def wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time, int
     else:                                             # case the disp_preview is set false
         t = time_for_focus                            # time for camera focus is assigned to variable t
     
-    if time_left_s > t:                               # case the time left for shooting is bigger than t
-        while time_left_s > t:                        # while time left for shooting is bigger than time t
+    if time_left_s >= t:                              # case the time left for shooting is bigger than t
+        while time_left_s >= t:                       # while time left for shooting is bigger than time t
             now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again
             if display and not quitting:              # case display is set True
                 display_time_left(time_left_s)        # prints left lime to display, and pause
@@ -1195,6 +1201,7 @@ def wait_until(time_for_focus, disp_preview, preview_pic, preview_show_time, int
     if time_left_s >= time_for_focus:                 # case the time left for shooting is bigger than time_for_focus
         now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again
         while time_left_s > time_for_focus:           # while time left for shooting is bigger than time time_for_focus
+            now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved again
             if display and not quitting:              # case display is set True
                 display_time_left(time_left_s)        # prints left lime to display, and pause
         return now_s, time_left_s, start_time_s       # last time check is returned
@@ -1219,7 +1226,7 @@ def wait_until_next_day(start_time_s, end_time_s, disp_preview, preview_pic, pre
     
     if start_time_s - 1.5 * interval_s < now_s < end_time_s - 1.5 * interval_s:    # case within shooting time of the day
         if debug:                                     # case debug is set True
-            print("\nDebug: within shooting time of the day")
+            print("Debug: within shooting time of the day")
         return now_s, time_left_s, start_time_s       # last time check is returned
     
     else:                                             # case outside shooting time of the day
@@ -1303,17 +1310,51 @@ def stop_pigpiod():
 
 
 
-def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
-    try:                                       # tentative approach
-        start_time = datetime.strptime(str(start_hhmm),'%H:%M')  # start_hhmm string is parsed to datetime
-        start_time_s = 3600*start_time.hour + 60*start_time.minute # start_time is converted to seconds (since 00:00)
-        end_time = datetime.strptime(str(end_hhmm),'%H:%M')   # end_hhmm string is parsed to datetime
-        end_time_s = 3600*end_time.hour + 60*end_time.minute  # end_time is converted to seconds (since 00:00)
-    except:                                    # exception
+def start_time_end_time(start_hhmm, end_hhmm, interval_s):
+    """Converts the strings 'start_hhmm' 'end_hhmm'to seconds from midnight.
+        Adjust the end_time to be an exact multiple of interval_s.
+    """
+    try:
+        start_time = datetime.strptime(str(start_hhmm),'%H:%M')     # start_hhmm string is parsed to datetime
+        start_time_s = 3600*start_time.hour + 60*start_time.minute  # start_time is converted to seconds (since 00:00)
+        end_time = datetime.strptime(str(end_hhmm),'%H:%M')         # end_hhmm string is parsed to datetime
+        end_time_s = 3600*end_time.hour + 60*end_time.minute        # end_time is converted to seconds (since 00:00)
+    except:                                                         # exception
         sys.exit(print("Variable 'start_hhmm' or 'end_hhmm' do not reppresent a valid time")) # feedback is printed to terminal
-        error = 1                              # error variable is set to 1 (True)
-        exit_func(error)                       # exit function is called
-        
+        error = 1                                                   # error variable is set to 1 (True)
+        exit_func(error)                                            # exit function is called
+    
+    shoot_time_s = end_time_s - start_time_s                        # shoot_time_s is the period (in secs) between start_time_s and end_time_s
+    if shoot_time_s % interval_s != 0:                              # case shoot_time_s is not an exact multiple of interval_s
+        if debug:                                                   # case debug is set True
+            print("\n"*2)
+            print("Debug: Time adjustment according to the interval_s")
+            print("  Defined interval_s:", interval_s)
+            print("  Defined start_time_s:", start_time_s)
+            print("  Original end_time_s:", end_time_s)
+            print("  Original shoot_time_s:", shoot_time_s)
+       
+        shoots = int((shoot_time_s) // interval_s)                  # number of pictures within shoot_time_s
+        end_time_s = start_time_s + shoots * interval_s             # end_time_s is corrected to have integer quantity of pictures
+        shoot_time_s = end_time_s - start_time_s                    # shoot_time_s is corrected to have integer quantity of pictures
+        if debug:                                                   # case debug is set True
+            print("  New end_time_s:", end_time_s)
+            print("  New shoot_time_s:", shoot_time_s)
+    
+    if end_time_s == start_time_s:                                  # case end_time_s equals start_time_s
+        end_time_s += 60                                            # end_time_s is incremented by 60 (s)
+    
+    return start_time_s, end_time_s, shoot_time_s
+
+
+
+
+
+def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
+    """Function managing some time related task, according to the settings and eventual power_outage."""
+    
+    start_time_s, end_time_s, shoot_time_s = start_time_end_time(start_hhmm, end_hhmm, interval_s)
+    
     if start_now:                              # case start_now is set True
         hh, mm = period_hhmm.split(':')        # period_hhmm is split in string 'hh' and string 'mm'
         shoot_time_s = int(hh) * 3600 + int(mm) * 60 # shooting time in seconds is calculated
@@ -1325,20 +1366,20 @@ def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
             shoot_time_s = end_time_s - start_time_s  # shooting time is calculated
             
             now_s, _ = time_update(start_time_s)  # current time from midnight is retrieved
-            if power_outage:                   # case power_outage is set True
+            if power_outage:                   # case power_outage is set True	
                 if  start_time_s < now_s < end_time_s - 1.5 * interval_s:  # case within shooting time
                     
                     if debug:                  # case debug is set True
                         # some prints to the terminal
-                        print("\n"*3)
+                        print("\n"*2)
                         print("Debug: Time adjustment because of recovery from power_outage within shooting time")
                         print("  Original start_time_s:", start_time_s)
                         print("  Original shoot_time_s:", shoot_time_s)
                     
-                    now_h = datetime.fromtimestamp(time()).hour   # hours from midnight
+                    now_h = datetime.fromtimestamp(time()).hour     # hours from midnight
                     now_m = datetime.fromtimestamp(time()).minute   # minutes from midnight
-                    start_time_s = now_h * 3600 + (now_m + 1) * 60   # start_time_s = the start of the next minute (secs from midnight)
-                    shoot_time_s =  end_time_s - start_time_s   # shooting time is calculated from start_time_s until end_time_s
+                    start_time_s = now_h * 3600 + (now_m + 1) * 60  # start_time_s = the start of the next minute (secs from midnight)
+                    shoot_time_s =  end_time_s - start_time_s       # shooting time is calculated from start_time_s until end_time_s
                     
                     if debug:                  # case debug is set True
                         # some prints to the terminal with updated values
@@ -1346,12 +1387,25 @@ def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
                         print("  New shoot_time_s:", shoot_time_s)
                     
                     if end_time_s - now_s < 1.5 * interval_s:  # case of almosto to the end of shooting time
-                        if debug:                  # case debug is set True
+                        if debug:              # case debug is set True
                             print("Power outage recovery almost to the end of shooting time")
                         
                         while end_time_s - now_s < 0.5 * interval_s:  # looping until  of almosto to the end of shooting time
                             now_s, _ = time_update(start_time_s)  # current time from midnight is retrieved
-                            sleep(0.1)  # small sleep time
+                            sleep(0.1)         # small sleep time
+    
+    # sanity check on the time
+    if shoot_time_s < interval_s:              # case shoot_time_s is smaller than interval_s
+        print("\n"*2)
+        print("Error: The period defined by start_hhmm and end_hhmm is smaller than the interval_s")
+        print("Solution: Enlarge the period defined by start_hhmm and end_hhmm and/or reduce interval_s")
+        print("   current interval_s is:",  interval_s)
+        print("   start_time_s:", start_time_s)
+        print("   end_time_s:", end_time_s)
+        print("   shoot_time_s:", shoot_time_s)
+        
+        error = 1                              # error is set to one
+        exit_func(error)                       # exit function is called
     
     return start_time_s, end_time_s, shoot_time_s
 
@@ -1419,9 +1473,25 @@ if __name__ == "__main__":
     paused_time = 0                            # paused_time variable to manage the time shift due to pause
     last_shoot_time = time()                   # last_shoot_time variable to manage the recover from a pause
     frame = 0                                  # incremental index appended after pictures suffix
-    last_frame = 0                             # last frame is the last saved picture suffix if power outage
-    # ##############################################################################################
+
+
+
+    ################    mix lux level check (optional)   ###########################################
     
+    # Lux levels from https://en.wikipedia.org/wiki/Daylight
+    # 120000        Brightest sunlight
+    # 111000        Bright sunlight
+    # 109880        AM 1.5 global solar spectrum sunlight (= 1,000.4 W/m2)[3][circular reference]
+    # 20000         Shade illuminated by entire clear blue sky, midday
+    # 1000 – 2000   Typical overcast day, midday
+    # 400           Sunrise or sunset on a clear day (ambient illumination)
+    # <200          Extreme of thickest storm clouds, midday
+    # 40            Fully overcast, sunset/sunrise
+    # <1            Extreme of thickest storm clouds, sunset/rise
+    
+    lux_check = True                           # flag to suject the shooting to a min Lux value
+    min_lux_threshold = 30                     # minimum Lux threshold, when lux_check is set True
+    # ##############################################################################################
     
     
     ################    setting up    ##############################################################
@@ -1615,9 +1685,11 @@ if __name__ == "__main__":
     
     
     ################  check for power outage while shooting  ########################################
+    last_frame = 0                             # last frame is the last saved picture suffix if power outage
+    past_days = 0                              # days already shootted, used if power outage
     power_outage = False                       # power_outage flag is initially set False
     if not date_folder and not start_now:      # case date_folder and start_now are set False (at settings)
-        last_frame, past_days, power_outage = power_outage_check(parent_folder, folder, pic_format, end_hhmm, interval_s)
+        last_frame, past_days, power_outage = power_outage_check(parent_folder, folder, pic_format, start_hhmm, end_hhmm, interval_s)
         if last_frame != 0:                    # case last_frame does not equal to zero
             frame = last_frame + 1             # last_frame (plus one) is assigned to frame
     # ###############################################################################################
@@ -1630,7 +1702,7 @@ if __name__ == "__main__":
                                                              end_hhmm,
                                                              start_now,
                                                              interval_s,
-                                                             power_outage) 
+                                                             power_outage)
     # ###############################################################################################
     
     
@@ -1648,13 +1720,15 @@ if __name__ == "__main__":
         now_t = datetime.fromtimestamp(time()) # current day and time
         now_s, time_lefts_s = time_update(start_time_s)   # current epoch time in seconds
         # some prints to the terminal
-        print("\n"*3)
+        print("\n"*2)
         print("Debug: Prints date and time references in different time method:")
         print("  Current date and time:", now_t)
         print("  Epoch current time (s):", now_s)
         print("  Epoch start_time_s (s):", start_time_s)
         print("  Epoch end_time_s (s):", end_time_s)
-        print("  Epoch shooting time shoot_time_s (s):", shoot_time_s)
+        print("  Epoch shoot_time_s (s):", shoot_time_s)
+        print("  Shooting starts at (hh:mm:ss):", secs2hhmmss(start_time_s))
+        print("  Shooting ends at (hh:mm:ss):", secs2hhmmss(end_time_s))
         print("  Shooting time (hh:mm:ss):", secs2hhmmss(shoot_time_s))
         print("  Shooting starts in (s):", time_lefts_s)
         print("  Shooting starts in (hh:mm:ss):", secs2hhmmss(time_lefts_s))
@@ -1681,7 +1755,7 @@ if __name__ == "__main__":
         
         disk_Mb = disk_space()                 # disk free space
         max_pics = int(disk_Mb/pic_Mb)         # rough amount of allowed pictures quantity in disk
-        frames = int(shoot_time_s/interval_s)  # frames (= pictures) quantity is calculated
+        frames = 1 + int(shoot_time_s/interval_s)  # frames (= pictures) quantity is calculated
         fps = round(frames/movie_time_s) if fix_movie_t else fps  # in case fix_movie_t is set True (forced movie time) the fps is calculated
         fps = 1 if fps < 1 else fps            # avoiding fps = 0
      
@@ -1741,22 +1815,26 @@ if __name__ == "__main__":
                 
                 if not quitting:                   # case quittining is set False
                     # calls the shooting function
-                    last_shoot_time = shoot(folder, pic_name, frame, pic_format, focus_ready, ref_time, display, disp_image, time_for_focus)
+                    ret, last_shoot_time = shoot(folder, pic_name, frame, pic_format, focus_ready, ref_time, display, disp_image, time_for_focus)
                     
-                    if frame_d % 50 == 0:  # case the frame is mutiple of 100
-                        t_ref = strftime("%d %b %Y %H:%M:%S", localtime())  # current local time passed as string
-                        print('\n' + t_ref, '\t', "frame:", '{:05d}'.format(frame_d), end = ' ', flush=True) # current time and frame feedback to terminal
-                    else:                          # case the frame is not mutiple of 100
-                        print('*',end ='', flush=True) # a dot character is added to the terminal to show progress
-                    
-                    frame+=1                       # frame variable (used for picture name) is incremented by one each shoot
-                    frame_d+=1                     # frame_d variable (used for shooting timing) is incremented by one each day
+                    if ret:                        # reference time for the next shoot is assigned
+                        if frame_d % 50 == 0:      # case the frame is mutiple of 50
+                            t_ref = strftime("%d %b %Y %H:%M:%S", localtime())  # current local time passed as string
+                            print('\n' + t_ref, '\t', "frame:", '{:05d}'.format(frame_d), end = ' ', flush=True) # current time and frame feedback to terminal
+                        else:                      # case the frame is not mutiple of 100
+                            print('*',end ='', flush=True) # a dot character is added to the terminal to show progress
+
+                        frame+=1                   # frame variable (used for picture name) is incremented by one each shoot
+                        frame_d+=1                 # frame_d variable (used for shooting timing) is incremented by one each day
                     
                     if paused_time > 0:            # case the paused_time is > 0
                         start_time += paused_time  # start time is shifted onward by the paused_time
                         paused_time = 0            # paused_time variable is reset to zero
                     
-                    ref_time = start_time + frame_d * interval_s  # reference time for the next shoot is assigned  
+                    if not lux_check:              # case the shooting is not subjected to lux value
+                        ref_time = start_time + frame_d * interval_s  # reference time for the next shoot is assigned (more precise method)
+                    else:                          # case the shooting is subjected to lux value
+                        ref_time = last_shoot_time + interval_s  # reference time for the next shoot is assigned (less precise method)
             
             # display update after each shoot
             if display and (local_control or frame_d < frames) and not button_pressed:   # case display is set True, and still shooting
@@ -1767,13 +1845,27 @@ if __name__ == "__main__":
                     sleep(disp_sleep_time)         # sleep time in between time checks
                     
             
-            if not local_control and frame_d >= frames:  # case local_control is set False and current frame_d equals the daily set frames quantity
-                print()                            # print empty line
+            if not local_control:                  # case local_control is set False
+                now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved
+                if frame_d >= frames or now_s > end_time_s:  # case current frame_d equals the daily set frames or current seconds of the day > end_time_s
+                    print()                        # print empty line
+                    if frame_d > 0 and frame_d >= frames:  # case frame_d bigger than zero and all pictures of the day taken
+                        # last frame gets its own print to terminal, to make visible the frames quantity
+                        print(strftime("%d %b %Y %H:%M:%S", localtime()), '\t', "frame:", '{:05}'.format(frame_d -1), " is the last frame")
                 
-                # last frame gets its own print to terminal, to make visible the frames quantity
-                print(strftime("%d %b %Y %H:%M:%S", localtime()), '\t', "frame:", '{:05}'.format(frame_d-1), " is the last frame")
-                print("Shooting completed")        # feedback is printed to terminal
-                break                              # while loop is interrupted
+                    elif frame_d > 0 and frame_d < frames:  # case frame_d bigger than zero and all pictures of the day taken
+                        # last frame gets its own print to terminal, to make visible the frames quantity
+                        print(strftime("%d %b %Y %H:%M:%S", localtime()), '\t', "frame:", '{:05}'.format(frame_d -1), " is the last frame (shooting-end time reached)")
+                    
+                    elif frame_d == 0 and lux_check:   # case frame_d equals to zero and lux_check set True
+                        print("\nNo pictures taken this day")
+                        print("Likely the camera estimated Lux were lower than the lux_threshold  forthe full shooting period")
+                        
+                    elif frame_d == 0 and not lux_check:  # case frame_d equals to zero and lux_check set False
+                        print("\nNo pictures taken this day")
+                    
+                    print("Shooting completed")    # feedback is printed to terminal
+                    break                          # while loop is interrupted
         
         
         ############################################################################################
@@ -1835,4 +1927,6 @@ if __name__ == "__main__":
     if not quitting:                               # case quitting is set False (quitting not already called)
         exit_func(error)                           # exit function is called  
     # ###############################################################################################
+
+
 
