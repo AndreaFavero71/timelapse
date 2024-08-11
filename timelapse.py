@@ -1489,7 +1489,7 @@ if __name__ == "__main__":
     # 40            Fully overcast, sunset/sunrise
     # <1            Extreme of thickest storm clouds, sunset/rise
     
-    lux_check = True                           # flag to suject the shooting to a min Lux value
+    lux_check = False                          # flag to suject the shooting to a min Lux value
     min_lux_threshold = 30                     # minimum Lux threshold, when lux_check is set True
     # ##############################################################################################
     
