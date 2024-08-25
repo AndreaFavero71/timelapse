@@ -136,11 +136,23 @@ This is especially relevant when the system is used for long periods, and power 
 1. Set the automatic scrip to start at Boot. <br />
 2. Set "date_folder" : "False" <br />
 3. Set "erase_pics" : "False" <br />
-4. Set "start_now" : "False" (use start start_hhmm and stop_hhmm to define the shooting period. Note that start_hhmm could be set to an earlier time than when you're going to start the system).<br />
 
 After the power outage, Raspberry Pi boots and the code checks for the latest picture suffix as reference for the next new picture.<br />
 In case of multiple days shooting, the days already covered by shooting (partially or fully) are counted (full days without power are also counted). Counted days are detracted from the total days set in settings, to complete the shooting as per schedule.
 <br /><br /><br /><br />
+
+
+## Shooting when enough illuminance
+The illuminance estimation by the camera can be used to avoid shooting if illuminance is below a threshold. <br />
+1. Set "lux_check" : "True"   (Default is False). <br />
+2. Set "lux_threshold" : "30" (30 is about the illuminance at sunset/sunshine. Check [Wikipdia](https://en.wikipedia.org/wiki/Illuminance) for values reference. <br />
+
+When "lux_check" is set False the code doesn't check the illuminance estimation by the camera. <br />
+When "lux_check" is set True, and illuminance drops below "lux_threshold", the pictures aren't taken. In this case less pictures are saved while the shooting schedule is safeguarded. <br />
+As example of "lux_threshold": "30":<br />
+![title image](/pictures/lux30.jpg)  <br />
+Make your own check on which threshold fits your setup.
+ <br /><br /><br /><br />
 
 
 ## Parts

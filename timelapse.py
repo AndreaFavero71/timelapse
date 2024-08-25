@@ -3,19 +3,22 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 11 August 2024,
+#  Andrea Favero 25 August 2024,
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera V3 (wide)
 #
-#  Last version (addition): Recovery from power outage
+#  Last version (addition): Recovery from power outage and shooting when illuminance above threshold
 #  Recovery from power outage works when below parameters are set like:
 #        "date_folder" : "False" (it points to "folder")
 #        "erase_pics" : "False"  (latest picture suffix retrieved to prevent pictures being overwritten)
+#  Shooting when illuminance above threshold works when below parameters are set like:
+#        "lux_check" : "True"    (it enables lux estimation by the camera)
+#        "lux_threshold" : "30"  (sets the lux threshold, 30 is about the illuminance at sanset/sunshine)
 #############################################################################################################
 """
 
 
 # __version__ variable
-version = '0.4 (11 Aug 2024)'
+version = '0.5 (25 Aug 2024)'
 
 
 ################  setting argparser for parameter parsing  ######################################
@@ -83,6 +86,7 @@ import RPi.GPIO as GPIO
 
 
 
+
 def to_bool(value):
     """ Converts argument to boolean. Raises exception for invalid formats
         Possible True  values: 1, True, true, "1", "True", "yes", "y", "t"
@@ -134,7 +138,13 @@ def check_screen_presence():
             print('Display function is availbale')  # feedback is printed to the terminal
         return True                                   # function returns True, meaning there is a screen connected
     else:                                             # case the environment variable DISPLAY is set to 0 (there is NOT a display)
-        if debug:                                     # case debug variable is set True (on __main__ or via argument)
+#         try:
+#             os.environ['DISPLAY'] = ':0'
+#             print("Successfully set os.environ['DISPLAY'] = ':0'")
+#         except:
+#             print("Failed to set os.environ['DISPLAY'] = ':0'")
+            
+        if debug:                                 # case debug variable is set True (on __main__ or via argument)
             print('Display function is not availbale') # feedback is printed to the terminal
         return False                                  # function returns False, meaning there is NOT a screen connected
 
@@ -231,6 +241,17 @@ def setup():
                 instructions_info('parent_folder')    # instructions_info function is called
             else:                                     # case parent_folder is a key in settings.txt
                 parent_folder = str(settings['parent_folder'])  # parent_folder name to append folders
+            
+            if settings.get('lux_check') == None:     # case lux_check is not a key in settings.txt 
+                instructions_info('lux_check')        # instructions_info function is called
+            else:                                     # case parent_folder is a key in settings.txt
+                lux_check = to_bool(settings['lux_check'])  # flag to enable lux_check
+            
+            if settings.get('lux_threshold') == None: # case lux_threshold is not a key in settings.txt 
+                instructions_info('lux_threshold')    # instructions_info function is called
+            else:                                     # case parent_folder is a key in settings.txt
+                lux_threshold = int(settings['lux_threshold'])  # lux threshold to take or not a picture
+                
             # ############################################################################
 
             
@@ -307,6 +328,8 @@ def setup():
     variables['hdr'] = hdr
     variables['autofocus'] = autofocus
     variables['focus_dist_m'] = focus_dist_m
+    variables['lux_check'] = lux_check
+    variables['lux_threshold'] = lux_threshold
     variables['date_folder'] = date_folder
     variables['folder'] = folder
     variables['parent_folder'] = parent_folder
@@ -367,7 +390,7 @@ def set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, pre
                                                           lores={"size": (640, 360)}) # camera settings
     
     picam2.configure(camera_conf)                     # applying settings to the camera
-
+    
     if v3_camera:                                     # case v3_camera is set True
         if hdr:                                       # case hdr is set True
             ret = os.system(f"v4l2-ctl --set-ctrl wide_dynamic_range=1 -d /dev/v4l-subdev0") # hdr on
@@ -379,13 +402,13 @@ def set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, pre
             return error                              # error code is returned
         else:                                         # case setting the hdr returns zero
             sleep(0.5)                                # little sleep time    
-        
+
         if autofocus:                                 # case autofocus is set True
             picam2.set_controls({"AfMode": controls.AfModeEnum.Auto})  # Autofocus Auto requires a trigger to execute the focus
         else:                                         # case autofocus is set False
             focus_dist = 1/focus_dist_m if focus_dist_m > 0 else 10    #preventing zero division; 0.1 meter is the min focus dist (1/0.1=10)
             picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": focus_dist}) # manual focus; 0.0 is infinite (1/>>), 2 is 50cm (1/0.5)
-    
+        
     sleep(1)                                          # little sleep time
     camera_started = start_camera(picam2, preview)    # camera is started
     
@@ -937,10 +960,10 @@ def shoot(folder, fname, frame, pic_format, focus_ready, ref_time, display, disp
     while time() < ref_time:                          # while it isn't time to shoot yet
         sleep(0.05)                                   # short sleep
 
-    if lux_check:                                     # case lux_check is set True (variable set at __main__ )
+    if lux_check:                                     # case lux_check is set True (settings)
         metadata = picam2.capture_metadata()          # camera is inquired
         estimated_lux = metadata["Lux"]               # estimated lux from the camera is assigned
-        if estimated_lux < min_lux_threshold:         # case the estimated lux is smaller than the min_lux_threshold (set at __main__)
+        if estimated_lux < lux_threshold:             # case the estimated lux is smaller than the lux_threshold (settings)
             return False, time()                      # boolean (picture not taken), time reference of last (skipped) shoot is returned
     
     pic_name = '{}_{:05}.{}'.format(fname, frame, pic_format)  # file name construction for the picture
@@ -1240,8 +1263,8 @@ def wait_until_next_day(start_time_s, end_time_s, disp_preview, preview_pic, pre
                 
 #################    debugging way to prevent waiting for a real day change ########################
 #                 sleep(5)
-#                 start_time_s = now_s + 10             # debugging way to prevent a real day change
-#                 print("Debug: Fake next day (setting start_time_s = now_s + 10) for debug purpose\n")
+#                 start_time_s = now_s + 60             # debugging way to prevent a real day change
+#                 print("Debug: Fake next day (setting start_time_s = now_s + 60) for debug purpose\n")
 #                 break
 # ##################################################################################################
                 
@@ -1350,7 +1373,7 @@ def start_time_end_time(start_hhmm, end_hhmm, interval_s):
 
 
 
-def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
+def time_management(start_hhmm, end_hhmm, start_now, interval_s, last_frame, power_outage):
     """Function managing some time related task, according to the settings and eventual power_outage."""
     
     start_time_s, end_time_s, shoot_time_s = start_time_end_time(start_hhmm, end_hhmm, interval_s)
@@ -1358,6 +1381,8 @@ def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
     if start_now:                              # case start_now is set True
         hh, mm = period_hhmm.split(':')        # period_hhmm is split in string 'hh' and string 'mm'
         shoot_time_s = int(hh) * 3600 + int(mm) * 60 # shooting time in seconds is calculated
+        if power_outage:                       # case power_outage is set True
+            shoot_time_s -= interval_s * (last_frame + 1) # shoot_time_s is reduced considering pictures already taken
                                    
     elif not start_now:                        # case start_now is set False
         if end_time_s < start_time_s:          # case end_time_s is smaller (advance) than start_time_s, the end_time_s in on the next day
@@ -1366,7 +1391,7 @@ def time_management(start_hhmm, end_hhmm, start_now, interval_s, power_outage):
             shoot_time_s = end_time_s - start_time_s  # shooting time is calculated
             
             now_s, _ = time_update(start_time_s)  # current time from midnight is retrieved
-            if power_outage:                   # case power_outage is set True	
+            if power_outage:                   # case power_outage is set True
                 if  start_time_s < now_s < end_time_s - 1.5 * interval_s:  # case within shooting time
                     
                     if debug:                  # case debug is set True
@@ -1489,8 +1514,7 @@ if __name__ == "__main__":
     # 40            Fully overcast, sunset/sunrise
     # <1            Extreme of thickest storm clouds, sunset/rise
     
-    lux_check = False                          # flag to suject the shooting to a min Lux value
-    min_lux_threshold = 30                     # minimum Lux threshold, when lux_check is set True
+    # I did some tests with lux_threshold = 30, to capsure sunsets, and it works fairly well
     # ##############################################################################################
     
     
@@ -1526,6 +1550,8 @@ if __name__ == "__main__":
     end_hhmm = variables['end_hhmm']
     interval_s = variables['interval_s']
     days = variables['days']
+    lux_check = variables['lux_check']
+    lux_threshold = variables['lux_threshold']
     
     rendering = variables['rendering']
     fix_movie_t = variables['fix_movie_t']
@@ -1688,7 +1714,8 @@ if __name__ == "__main__":
     last_frame = 0                             # last frame is the last saved picture suffix if power outage
     past_days = 0                              # days already shootted, used if power outage
     power_outage = False                       # power_outage flag is initially set False
-    if not date_folder and not start_now:      # case date_folder and start_now are set False (at settings)
+    print_once = True                          # variables to enable/disable a single print
+    if not date_folder:                        # case date_folder is set False (at settings)
         last_frame, past_days, power_outage = power_outage_check(parent_folder, folder, pic_format, start_hhmm, end_hhmm, interval_s)
         if last_frame != 0:                    # case last_frame does not equal to zero
             frame = last_frame + 1             # last_frame (plus one) is assigned to frame
@@ -1702,6 +1729,7 @@ if __name__ == "__main__":
                                                              end_hhmm,
                                                              start_now,
                                                              interval_s,
+                                                             last_frame,
                                                              power_outage)
     # ###############################################################################################
     
@@ -1743,13 +1771,17 @@ if __name__ == "__main__":
     
     day = 0                                    # zero is assigned to variable day (first day)
     while day < days:                          # iteration over the days (settings)
-    
-        if past_days > 0:                      # case there are shootted days (recovery from power outage)
-            day += past_days                   # days variable is decremented by past_days
-            past_days = 0                      # zero is assigned to past_days
         
-        frame_d = 0                            # frame_d (frame of the day) is set to zero
+        # adjusting some variables in case power_outage happened
+        if start_now:                          # case start_now is set True
+            frame_d = last_frame + 1           # frame_d (frame of the day) is set to last frame
+        else:                                  # case start_now is set False
+            if past_days > 0:                  # case there are shootted days (recovery from power outage)
+                day += past_days               # days variable is decremented by past_days
+                past_days = 0                  # zero is assigned to past_days
+                frame_d = 0                    # frame_d (frame of the day) is set to zero
         
+        # erasing pictures daily
         if rendering and make_space:           # if rendering and makes space are set True
             error = make_space(parent_folder)  # emptying the folder from old pictures
         
@@ -1783,7 +1815,8 @@ if __name__ == "__main__":
         
         
         #############################################################################################
-        #############################   shooting loop within a day  #################################
+        #############################   shooting loop within a day    ###############################
+        # when start_now days is foced to zero and shooting stops by changing day
         ############################################################################################# 
 
         # loop ends when frames quantity is reached, or stop request (buttons, Ctrl+C, etc)
@@ -1817,13 +1850,18 @@ if __name__ == "__main__":
                     # calls the shooting function
                     ret, last_shoot_time = shoot(folder, pic_name, frame, pic_format, focus_ready, ref_time, display, disp_image, time_for_focus)
                     
-                    if ret:                        # reference time for the next shoot is assigned
-                        if frame_d % 50 == 0:      # case the frame is mutiple of 50
+                    if not ret:                    # case a picture has not been taken
+                        if power_outage and lux_check and print_once:    # case there was power outage and lux_check is set True
+                            print(" Probably the Lux level is currently below the lux_threshold ")  # feedback is printed to the terminal
+                            print_once = False     # print_once is set False to prevent further prints
+                    
+                    elif ret:                      # case a picture has been taken
+                        if frame_d % 50 == 0 or frame_d == last_frame + 1:   # case the frame is mutiple of 50 or 1st shoot after power_outage and strat_now
                             t_ref = strftime("%d %b %Y %H:%M:%S", localtime())  # current local time passed as string
                             print('\n' + t_ref, '\t', "frame:", '{:05d}'.format(frame_d), end = ' ', flush=True) # current time and frame feedback to terminal
                         else:                      # case the frame is not mutiple of 100
                             print('*',end ='', flush=True) # a dot character is added to the terminal to show progress
-
+                            
                         frame+=1                   # frame variable (used for picture name) is incremented by one each shoot
                         frame_d+=1                 # frame_d variable (used for shooting timing) is incremented by one each day
                     
@@ -1847,7 +1885,10 @@ if __name__ == "__main__":
             
             if not local_control:                  # case local_control is set False
                 now_s, time_left_s = time_update(start_time_s)  # current time, and time left to shooting start, is retrieved
-                if frame_d >= frames or now_s > end_time_s:  # case current frame_d equals the daily set frames or current seconds of the day > end_time_s
+                
+                # conditions to stop shooting (of the day when multiday, of final stop when start_now)
+                # case current frame_d equals the daily set frames or (current seconds of the day > end_time_s and not start_now)
+                if frame_d >= frames or (now_s > end_time_s and not start_now):        
                     print()                        # print empty line
                     if frame_d > 0 and frame_d >= frames:  # case frame_d bigger than zero and all pictures of the day taken
                         # last frame gets its own print to terminal, to make visible the frames quantity
@@ -1910,9 +1951,11 @@ if __name__ == "__main__":
         
         # call to time_management function to get rid of eventual time adjustments caused by recovery from power outage
         start_time_s, end_time_s, shoot_time_s = time_management(start_hhmm, end_hhmm, start_now,
-                                                                 interval_s, power_outage = False)
+                                                                 interval_s, last_frame, power_outage = False)
         
+        # Note: when start_now is set True and day > 0 the iteration over days is concluded
         day += 1                                   # iterator day is incremented (end of the while loop)
+         
 
     #################################################################################################
     ####################################   Loop end over days  ######################################
@@ -1927,6 +1970,4 @@ if __name__ == "__main__":
     if not quitting:                               # case quitting is set False (quitting not already called)
         exit_func(error)                           # exit function is called  
     # ###############################################################################################
-
-
 

@@ -23,6 +23,8 @@
 "hdr": "True",
 "autofocus": "True",
 "focus_dist_m": "0.1",
+"lux_check": "False",
+"lux_threshold": "30",
 "date_folder": "True",
 "folder": "timelapse_pics",
 "parent_folder": "/home/pi/shared",
