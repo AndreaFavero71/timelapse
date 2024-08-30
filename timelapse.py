@@ -3,7 +3,7 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 25 August 2024,
+#  Andrea Favero 30 August 2024,
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera V3 (wide)
 #
 #  Last version (addition): Recovery from power outage and shooting when illuminance above threshold
@@ -18,7 +18,7 @@
 
 
 # __version__ variable
-version = '0.5 (25 Aug 2024)'
+version = '0.6 (30 Aug 2024)'
 
 
 ################  setting argparser for parameter parsing  ######################################
@@ -725,7 +725,8 @@ def disk_space():
 def time_update(start_time_s):
     """ Check current datetime: Returns the total secs from 00:00, and the left time in secs to the shooting start time.
     """
-    now_s = 3600*datetime.now().hour + 60*datetime.now().minute + datetime.now().second  # datetime convert to secs 
+    now = datetime.fromtimestamp(time())              # current datetime, from epoch time
+    now_s = 3600*now.hour + 60*now.minute + now.second  # datetime convert to secs 
     time_left_s = start_time_s - now_s                # time difference in secs, between the current time and shooting start time
     return now_s, time_left_s                         # return
 
@@ -1401,8 +1402,9 @@ def time_management(start_hhmm, end_hhmm, start_now, interval_s, last_frame, pow
                         print("  Original start_time_s:", start_time_s)
                         print("  Original shoot_time_s:", shoot_time_s)
                     
-                    now_h = datetime.fromtimestamp(time()).hour     # hours from midnight
-                    now_m = datetime.fromtimestamp(time()).minute   # minutes from midnight
+                    now = time()                                 # current epoch time
+                    now_h = datetime.fromtimestamp(now).hour     # hours from midnight
+                    now_m = datetime.fromtimestamp(now).minute   # minutes from midnight
                     start_time_s = now_h * 3600 + (now_m + 1) * 60  # start_time_s = the start of the next minute (secs from midnight)
                     shoot_time_s =  end_time_s - start_time_s       # shooting time is calculated from start_time_s until end_time_s
                     
@@ -1661,7 +1663,8 @@ if __name__ == "__main__":
     
     ################  picture folder presence check / creation  ####################################
     if date_folder:                            # case date_folder is set True
-        folder = str(datetime.today().strftime('%Y%m%d'))  # folder name is retrieved as yyyymmdd
+        now = datetime.fromtimestamp(time())   # current datetime, from epoch time
+        folder = str(now.strftime('%Y%m%d'))   # folder name is retrieved as yyyymmdd
     folder = os.path.join(parent_folder, folder) # folder will be appended to the parent folder
     
     if not os.path.exists(folder):             # case the folder does not exist
@@ -1870,7 +1873,7 @@ if __name__ == "__main__":
                         paused_time = 0            # paused_time variable is reset to zero
                     
                     if not lux_check:              # case the shooting is not subjected to lux value
-                        ref_time = start_time + frame_d * interval_s  # reference time for the next shoot is assigned (more precise method)
+                        ref_time = start_time + (frame_d - last_frame - 1) * interval_s  # reference time for the next shoot is assigned (more precise method)
                     else:                          # case the shooting is subjected to lux value
                         ref_time = last_shoot_time + interval_s  # reference time for the next shoot is assigned (less precise method)
             
@@ -1970,4 +1973,4 @@ if __name__ == "__main__":
     if not quitting:                               # case quitting is set False (quitting not already called)
         exit_func(error)                           # exit function is called  
     # ###############################################################################################
-
+    
