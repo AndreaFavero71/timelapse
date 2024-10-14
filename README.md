@@ -78,6 +78,7 @@ More info at [instructable page of this project](https://www.instructables.com/T
 3. The relevant files are into the timelapse folder: ```cd timelapse```<br />
 4. Edit the settings.txt file (quite self explanatory) and set the parameters according to your needs: ```nano settings.txt``` (save the file, with Ctrl + X, followed by Y, followed by Enter)<br />
 5. Run the script: ```python timelapse.py``` (changes at the settings are only loaded at the scrip start). Arguments can be passed.<br />
+6. The code defaults to V2 camera. If you use the V3 camera, add v3_camera argument: ```python timelapse.py --v3_camera```
 
 Feedbacks on the display:<br />
 - At the start it shows the main settings, including an estimation of pictures quantity the microSD can store<br />
