@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-##########   Andrea Favero,  26 July2023  ####################################################
+##########   Andrea Favero,  10 Octobe 2024 ####################################################
 #  This bash script starts the Timelapse.py script, after the Pi boots.
 #  When the python script is terminated wiithout errors (long buttons press), the Pi shuts down
 #  (check notes below before uncommenting the "halt -p" command)
@@ -10,7 +10,7 @@
 cd /home/pi/timelapse
 
 # runs the timelapse main script
-python3 timelapse.py
+python3 -u timelapse.py -d --skip_intro > output.txt 2>&1
 
 # exit code from the python script
 exit_status=$?
