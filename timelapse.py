@@ -3,22 +3,17 @@
 
 """
 #############################################################################################################
-#  Andrea Favero 10 October 2024,
+#  Andrea Favero 18 March 2026
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera (V2 or V3)
 #
-#  Last version (addition): Recovery from power outage and shooting when illuminance above threshold
-#  Recovery from power outage works when below parameters are set like:
-#        "date_folder" : "False" (it points to "folder")
-#        "erase_pics" : "False"  (latest picture suffix retrieved to prevent pictures being overwritten)
-#  Shooting when illuminance above threshold works when below parameters are set like:
-#        "lux_check" : "True"    (it enables lux estimation by the camera)
-#        "lux_threshold" : "30"  (sets the lux threshold, 30 is about the illuminance at sanset/sunshine)
+#  Last version (v0.8) addition: Overlaying datetime to the image prior saving it
+#
 #############################################################################################################
 """
 
 
 # __version__ variable
-version = '0.7 (10 Oct 2024)'
+version = '0.8 (18 Mar 2026)'
 
 
 ################  setting argparser for parameter parsing  ######################################
@@ -74,15 +69,16 @@ args = parser.parse_args()   # argument parsed assignement
 
 
 # libraries import
-from picamera2 import Picamera2, Preview
+from picamera2 import Picamera2, Preview, MappedArray
 from libcamera import controls
 from os import system
+from subprocess import Popen, PIPE
 from time import time, sleep, localtime, strftime
 from datetime import datetime, timedelta
-import os.path, pathlib, stat, sys, json
+import os.path, pathlib, stat, sys, json, subprocess, socket, cv2
 import RPi.GPIO as GPIO
-import subprocess, socket
-from subprocess import Popen, PIPE
+
+
 
 
 
@@ -185,7 +181,7 @@ def setup():
             erase_pics = to_bool(settings['erase_pics']) # flag to erase old pictures from folder
             erase_movies = to_bool(settings['erase_movies']) # flag to erase old movies from folder
             local_control = to_bool(settings['local_control']) # flag to enable setting changes via UI at Raspberry Pi
-            start_now = to_bool(settings['start_now'])  # flag to force shoting immediatly or at set datetime
+            start_now = to_bool(settings['start_now'])  # flag to force shooting immediatly or at set datetime
             period_hhmm = str(settings['period_hhmm'])  # shooting period in hhmm when start_now
             start_hhmm = str(settings['start_hhmm'])  # hh:mm of shooting start time
             end_hhmm = str(settings['end_hhmm'])      # hh:mm of shooting end time
@@ -206,6 +202,7 @@ def setup():
             pic_name = str(settings['pic_name'])      # picture prefix name
             pic_format = str(settings['pic_format'])  # picture format
             display = to_bool(settings['display'])    # flag for display usage
+            datetime_overlay = to_bool(settings['datetime_overlay'])  # flag to overlay the datetime on pictures
             
             
             ##############################################################################
@@ -256,7 +253,12 @@ def setup():
                 instructions_info('lux_threshold')    # instructions_info function is called
             else:                                     # case parent_folder is a key in settings.txt
                 lux_threshold = int(settings['lux_threshold'])  # lux threshold to take or not a picture
-                
+            
+            if settings.get('datetime_overlay') == None:    # case datetime_overlay is not a key in settings.txt 
+                instructions_info('datetime_overlay') # instructions_info function is called
+            else:                                     # case datetime_overlay is a key in settings.txt
+                datetime_overlay = to_bool(settings['datetime_overlay']) # flag to enable datetime overlay on pictures
+                  
             # ############################################################################
 
             
@@ -295,7 +297,8 @@ def setup():
     GPIO, upper_btn, lower_btn, disp = set_gpio(display)  # calls the function to set gpio
     
     # calls to the function to set the camera
-    picam2, camera_started, error = set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, preview)  
+    picam2, camera_started, error = set_camera(camera_w, camera_h, rotate_180, hdr, autofocus,
+                                               focus_dist_m, preview, datetime_overlay)
     if error!=0:                                      # case camera setting raises errors
         return variables, error                       # error is returned
     
@@ -341,6 +344,7 @@ def setup():
     variables['pic_name'] = pic_name
     variables['pic_format'] = pic_format
     variables['rotate_180'] = rotate_180
+    variables['datetime_overlay'] = datetime_overlay
     
     variables['display'] = display
     variables['modified_disp'] = modified_disp
@@ -354,13 +358,17 @@ def setup():
 
 
 
-def set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, preview, v3_camera = False):
+def set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, preview, datetime_overlay, v3_camera = False):
     global picam2
     
     print()                                           # an empry line is printed to terminal
     camera_started = False                            # camera_started variable is set False
     error = 0                                         # error variable is set to 0 (no errors)
     picam2 = Picamera2()                              # camera object
+    
+    # set the datetime overlay option to the camera
+    if datetime_overlay:                              # case datetime overlay is set True
+        picam2.pre_callback = apply_timestamp         # datetime overlay function callback
     
     # check for cv2 presence (info used to set the camera preview mode)
     try:                                              # tentative approach
@@ -413,7 +421,10 @@ def set_camera(camera_w, camera_h, rotate_180, hdr, autofocus, focus_dist_m, pre
         else:                                         # case autofocus is set False
             focus_dist = 1/focus_dist_m if focus_dist_m > 0 else 10    #preventing zero division; 0.1 meter is the min focus dist (1/0.1=10)
             picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": focus_dist}) # manual focus; 0.0 is infinite (1/>>), 2 is 50cm (1/0.5)
-        
+    
+    
+    
+    
     sleep(1)                                          # little sleep time
     camera_started = start_camera(picam2, preview)    # camera is started
     
@@ -979,9 +990,10 @@ def shoot(folder, fname, frame, pic_format, focus_ready, ref_time, display, disp
     
     pic_name = '{}_{:05}.{}'.format(fname, frame, pic_format)  # file name construction for the picture
     picture = os.path.join(folder, pic_name)          # path and file name for the picture
+    last_shoot_time = time()                          # current time is assigned to last_shoot_time 
     camera_info = picam2.capture_file(picture)        # camera takes and save a picture
 #     print("\n  Camera_info at picture taking", camera_info)  # camera info are printed to the terminal
-    last_shoot_time = time()                          # current time is assigned to last_shoot_time 
+#     last_shoot_time = time()                          # current time is assigned to last_shoot_time 
     
     if display and disp_image:                        # case display_image is set True
         show_image(picture, 5)                        # image s plot on display
@@ -1522,9 +1534,59 @@ def time_system_synchr():
 
 
 
+
+def apply_timestamp(request):
+    """ Datetime overlay to image function."""
+    
+    # Set font parameters
+    font = cv2.FONT_HERSHEY_SIMPLEX  # font type
+    font_scale = 1.5                 # font scaler
+    font_thickness = 3               # font thickness
+    font_color = (0, 0, 0)           # font color
+    bg_color = (255, 255, 255)       # background color
+    padding = 30
+    
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # 
+    
+    # calculate the text size
+    (text_width, text_height), baseline = cv2.getTextSize(timestamp,
+                                                          font,
+                                                          font_scale,
+                                                          font_thickness
+                                                          )
+    
+    with MappedArray(request, "main") as m:
+        
+        # image size
+        h, w = m.array.shape[:2]         # image dimensions
+        
+        # coordinates for the text positioning
+        text_x = padding
+        text_y = h - padding
+        
+        # draw a background rectangle
+        cv2.rectangle(m.array,
+                      (text_x - 10, text_y - text_height - 10 ),
+                      (text_x + text_width + 10, text_y + 10),
+                      bg_color,
+                      -1)
+        
+        # draw timestamp on the image array
+        cv2.putText(m.array,
+                    timestamp,
+                    (text_x, text_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    font_scale,
+                    font_color,
+                    font_thickness)
+
+
+
+
+
 def exit_func(error):
-    """ Exit function, taking care to properly close things.
-    """
+    """ Exit function, taking care to properly close things."""
     
     try:                                              # tentative approach
         picam2.stop()                                 # camera is finally acivated
@@ -2080,3 +2142,4 @@ if __name__ == "__main__":
         exit_func(error)                           # exit function is called  
     # ###############################################################################################
     
+
