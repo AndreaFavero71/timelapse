@@ -6,14 +6,14 @@
 #  Andrea Favero 18 March 2026
 #  Timelapse module, based on Raspberry Pi 4b and PiCamera (V2 or V3)
 #
-#  Last version (v0.8) addition: Overlaying datetime to the image prior saving it
+#  Last version (v0.8) addition: Overlaying datetime to the image prior saving it (BG with opacity control)
 #
 #############################################################################################################
 """
 
 
 # __version__ variable
-version = '0.8 (18 Mar 2026)'
+version = '0.8 (26 Mar 2026)'
 
 
 ################  setting argparser for parameter parsing  ######################################
@@ -72,6 +72,7 @@ args = parser.parse_args()   # argument parsed assignement
 from picamera2 import Picamera2, Preview, MappedArray
 from libcamera import controls
 from os import system
+from numpy import full, uint8
 from subprocess import Popen, PIPE
 from time import time, sleep, localtime, strftime
 from datetime import datetime, timedelta
@@ -1536,17 +1537,23 @@ def time_system_synchr():
 
 
 def apply_timestamp(request):
-    """ Datetime overlay to image function."""
+    """
+    Datetime overlay to image, leveraging th picam2 overlay feature.
+    Datetime is prositione to the bottom-left corner.
+    A copy of the picturs's ROI is used to blend a rectabgle (text background) with opacity alpha,
+    wherein the solid text gets plot.
+    """
     
     # Set font parameters
     font = cv2.FONT_HERSHEY_SIMPLEX  # font type
     font_scale = 1.5                 # font scaler
-    font_thickness = 3               # font thickness
-    font_color = (0, 0, 0)           # font color
+    font_thickness = 4               # font thickness
+    font_color = (0, 0, 0)           # font color (always full opacity)
     bg_color = (255, 255, 255)       # background color
-    padding = 30
+    alpha = 0.2                      # background opacity (0.2 = 20% visible)
+    padding = 30                     # X, Y padding from bottom left corner
     
-    
+    # get the datetime and set its string format
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # 
     
     # calculate the text size
@@ -1558,29 +1565,50 @@ def apply_timestamp(request):
     
     with MappedArray(request, "main") as m:
         
+        # image shape
+        shape = m.array.shape
+        
         # image size
-        h, w = m.array.shape[:2]         # image dimensions
+        h, w = shape[:2]
         
-        # coordinates for the text positioning
-        text_x = padding
-        text_y = h - padding
+        # color managment, depending from the pictures settings
+        if len(shape) == 3:
+            channels = shape[2]
+            # if 4 chanels (RGBA) apha 255 is added
+            f_color = font_color + (255,) if channels == 4 else font_color
+            b_color = bg_color + (255,) if channels == 4 else bg_color
+        else:
+            # case the picture is B&W (1 channel only)
+            channels = 1
+            f_color, b_color = 0, 255  # Black Text on White BG
         
-        # draw a background rectangle
-        cv2.rectangle(m.array,
-                      (text_x - 10, text_y - text_height - 10 ),
-                      (text_x + text_width + 10, text_y + 10),
-                      bg_color,
-                      -1)
+        # rectangle coordinate (Box) in the main image
+        # x1, y1 = top-left | x2, y2 = bottom-right
+        x1 = padding - 10
+        y1 = h - padding - text_height - 20
+        x2 = padding + text_width + 10
+        y2 = h - padding + 10
         
-        # draw timestamp on the image array
-        cv2.putText(m.array,
+        # copy of the picture ROI to a temporary array (real copy necessary)
+        roi = m.array[y1:y2, x1:x2].copy()
+        
+        #  background rectangle with plain color, with ROI size
+        overlay = full(roi.shape, b_color, dtype=uint8)
+        
+        # blending the datetime overlay with defined opacity to the ROI
+        blended = cv2.addWeighted(overlay, alpha, roi, 1 - alpha, 0)
+        
+        # plain text is plot to the background box
+        cv2.putText(blended,
                     timestamp,
-                    (text_x, text_y),
-                    cv2.FONT_HERSHEY_SIMPLEX,
+                    (10, blended.shape[0] - 15),
+                    font,
                     font_scale,
-                    font_color,
+                    f_color,
                     font_thickness)
-
+        
+        # copy the datetime ROI to the main picture
+        m.array[y1:y2, x1:x2] = blended
 
 
 
@@ -2142,4 +2170,5 @@ if __name__ == "__main__":
         exit_func(error)                           # exit function is called  
     # ###############################################################################################
     
+
 
